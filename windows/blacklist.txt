@@ -1,0 +1,7 @@
+# One keyword per line. Case-insensitive. Lines starting with # are comments.
+# Examples of additional keywords to add: token, secret, api_key
+host
+password
+pw
+account
+authorization
