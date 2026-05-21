@@ -232,11 +232,11 @@ AddClipboardFormatListener(Handle)             // 恢復監聽
 **k-v pattern**（動態組合，每次啟動從 `blacklist.txt` 讀取）：
 
 ```
-\b(KW1|KW2|...)("?\s*[:=]\s*"?(?:Bearer\s+|Basic\s+)?)([^",\s;&]+)
+(?<!\p{L})(KW1|KW2|...)("?\s*[:=]\s*"?(?:Bearer\s+|Basic\s+)?)([^",\s;&]+)
 ```
 
 - `(?i)` — `RegexOptions.IgnoreCase`：不分大小寫，`Password` 與 `PASSWORD` 皆命中
-- `\b` — word boundary：防止 substring 誤命中（如 `mypassword` 不會被 `password` 規則命中）
+- `(?<!\p{L})` — Unicode letter negative lookbehind：防止 substring 誤命中，同時支援 CJK 關鍵字（`\b` 在 .NET 為 ASCII-only，CJK 字元屬 `\W`，無法在行首觸發邊界；`(?<!\p{L})` 改為判斷「前一字元是否為 Unicode 字母」，對 ASCII 與 CJK 均有效）
 - Group 1 `(KW1|KW2|...)` — 關鍵字本身
 - Group 2 `("?\s*[:=]\s*"?(?:Bearer\s+|Basic\s+)?)` — 分隔符，可選前置 `"`、可選後置 `"`、可選 Auth scheme 前綴（`Bearer ` 或 `Basic `）
 - Group 3 `([^",\s;&]+)` — 值，終止於雙引號、逗號、whitespace、分號、`&`
@@ -248,7 +248,7 @@ AddClipboardFormatListener(Handle)             // 恢復監聽
 **Presence pattern**（fallback，僅在 k-v pattern 無命中時觸發）：
 
 ```
-\b(KW1|KW2|...)\b
+(?<!\p{L})(KW1|KW2|...)(?!\p{L})
 ```
 
 偵測到關鍵字但無 k-v 結構時，顯示 WarningForm 提示使用者手動檢查。
@@ -386,8 +386,8 @@ Group 3 的值終止於逗號、whitespace、分號、`&`。因此：
 - `pw="abc def"` — 遮罩 `"abc`，引號值目前不特別處理
 - URL 編碼字串（如 `%20`）不解碼，以字面量匹配
 
-**`\b` 與非 ASCII 關鍵字**
-`\b` 在 .NET regex 預設下對 ASCII word character（`[a-zA-Z0-9_]`）定義邊界；若使用者在 `blacklist.txt` 中放入中文關鍵字，邊界判定可能不如預期。本工具預設關鍵字為英文，使用者自訂中文關鍵字時請自行驗證匹配行為。
+**中文（CJK）關鍵字支援**
+`BuildPatterns` 以 `(?<!\p{L})` / `(?!\p{L})` 取代 `\b`，支援在 `blacklist.txt` 中放入中文關鍵字（如 `密碼`、`主機`、`帳號`）。邊界規則：前一字元不得為 Unicode 字母（`\p{L}`），後一字元同理。因此 `test密碼=secret` 不命中（`t` 為 `\p{L}`），但 ` 密碼: S3cr3t!` 或行首 `密碼: S3cr3t!` 皆可正確命中並遮罩。
 
 ---
 

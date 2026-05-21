@@ -126,14 +126,16 @@ Writing to the clipboard triggers another `WM_CLIPBOARDUPDATE`. Two guards preve
 
 k-v pattern (simplified):
 ```
-\b(keyword1|keyword2|...)("?\s*[:=]\s*"?(?:Bearer\s+|Basic\s+)?)([^",\s;&]+)
+(?<!\p{L})(keyword1|keyword2|...)("?\s*[:=]\s*"?(?:Bearer\s+|Basic\s+)?)([^",\s;&]+)
 ```
 Groups: `$1` = keyword, `$2` = separator (preserved), `$3` = value (replaced with token).
 
 Presence pattern (fallback):
 ```
-\b(keyword1|keyword2|...)\b
+(?<!\p{L})(keyword1|keyword2|...)(?!\p{L})
 ```
+
+`(?<!\p{L})` / `(?!\p{L})` are Unicode-aware letter lookbehind/lookahead. They replace `\b` to support CJK keywords — `\b` in .NET is ASCII-only and fails to match CJK characters at non-word boundaries. Both ASCII and CJK keywords benefit from substring protection (e.g. `test密碼=secret` does not match keyword `密碼`).
 
 ### Build & Test
 
@@ -186,7 +188,7 @@ Implementation notes (to be filled in once development begins):
 - Values containing spaces (`password: my secret`) — only the first word is redacted
 - Clipboard formats beyond plain text (RTF, HTML, images) are not processed; replacing a value downgrades the clipboard to plain text
 - `Ctrl+Alt+Q` hotkey registration may fail if another app has claimed it — use the tray menu to exit
-- `\b` word boundary in .NET regex is ASCII-only; non-ASCII keywords may not match as expected
+- CJK keywords are supported; the boundary guard uses `(?<!\p{L})` / `(?!\p{L})` so both ASCII and Chinese keywords work correctly
 
 ---
 

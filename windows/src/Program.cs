@@ -375,12 +375,14 @@ namespace ClipAssistant
 
             // Group 1 = keyword, Group 2 = separator (optional quotes + auth scheme prefix),
             // Group 3 = value (the only part replaced).
-            string kvPat = @"\b(" + alt +
+            // (?<!\p{L}) / (?!\p{L}): Unicode-aware boundary so CJK keywords match;
+            // \b fails for CJK because those chars are \W in .NET, giving no \w/\W transition.
+            string kvPat = @"(?<!\p{L})(" + alt +
                            @")(""?\s*[:=]\s*""?(?:Bearer\s+|Basic\s+)?)([^"",\s;&]+)";
             _kvPattern = new Regex(kvPat, RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-            // Presence pattern: keyword at word boundary — fires when no k-v structure found.
-            string presencePat = @"\b(" + alt + @")\b";
+            // Presence pattern: keyword at Unicode letter boundary.
+            string presencePat = @"(?<!\p{L})(" + alt + @")(?!\p{L})";
             _presencePattern = new Regex(presencePat, RegexOptions.IgnoreCase | RegexOptions.Compiled);
         }
 

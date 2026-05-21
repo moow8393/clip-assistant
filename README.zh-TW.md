@@ -126,14 +126,16 @@ Program（進入點）
 
 k-v pattern（簡化）：
 ```
-\b(keyword1|keyword2|...)("?\s*[:=]\s*"?(?:Bearer\s+|Basic\s+)?)([^",\s;&]+)
+(?<!\p{L})(keyword1|keyword2|...)("?\s*[:=]\s*"?(?:Bearer\s+|Basic\s+)?)([^",\s;&]+)
 ```
 Group 1 = 關鍵字（保留），Group 2 = 分隔符（保留），Group 3 = 值（替換）。
 
 Presence pattern（fallback）：
 ```
-\b(keyword1|keyword2|...)\b
+(?<!\p{L})(keyword1|keyword2|...)(?!\p{L})
 ```
+
+`(?<!\p{L})` / `(?!\p{L})` 為 Unicode letter lookbehind/lookahead，取代原本的 `\b`。原因：.NET 的 `\b` 僅適用 ASCII，CJK 字元屬 `\W`，無 `\w/\W` 轉換，導致行首的中文關鍵字無法命中。新邊界同時保護 substring（如 `test密碼=secret` 不會命中關鍵字 `密碼`）。
 
 ### 建置與測試
 
@@ -186,7 +188,7 @@ npm run info:ios        # 顯示：Please open ./ios/ClipAssistant.xcodeproj in 
 - 值含空格（如 `password: my secret`）— 僅遮罩第一個詞
 - 純文字以外的剪貼簿格式（RTF、HTML、圖片）不處理；替換後剪貼簿降格為純文字
 - `Ctrl+Alt+Q` 若被其他程式佔用，熱鍵註冊失敗，請改用托盤選單退出
-- .NET regex 的 `\b` 邊界判定僅適用 ASCII 字元；使用中文關鍵字時請自行驗證匹配行為
+- 中文關鍵字已支援；邊界採用 `(?<!\p{L})` / `(?!\p{L})`，ASCII 與中文關鍵字均可正確偵測與阻擋 substring
 
 ---
 
