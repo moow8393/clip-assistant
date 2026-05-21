@@ -11,7 +11,7 @@ npm run dev:win
 # 等同於：powershell -ExecutionPolicy Bypass -File ./windows/monitor.ps1
 ```
 
-腳本啟動後會在系統列顯示圖示，靜默監聽剪貼簿，直到使用者透過熱鍵或系統列選單退出。
+腳本啟動後會在系統列顯示圖示（Tooltip：`Clip Assistant - Active`），靜默監聽剪貼簿，直到使用者透過熱鍵或系統列選單退出。
 
 **使用情境**：貼出剪貼簿前自動遮罩敏感資訊（密碼、host、帳號等），避免含有 `password=secret` 或 `host: 192.168.1.1` 等敏感資料的文字被直接貼到其他工具。
 
@@ -28,16 +28,24 @@ ClipboardMonitor : NativeWindow, IDisposable
   │  const HOTKEY_ID           = 0xB001
   │  _kvPattern: Regex         (keyword + separator + value; enables redaction)
   │  _presencePattern: Regex   (keyword word-boundary only; fallback warning)
-  │  _replacement: string
+  │  _replacementForRegex: string  ("$" doubled to prevent back-reference in Regex.Replace)
   │  bool _dialogOpen
+  │  bool Paused               (property; when true, WM_CLIPBOARDUPDATE events are ignored)
+  │  string[] Keywords         (read-only snapshot; updated by UpdateConfig)
+  │  string   Replacement      (raw replacement token; updated by UpdateConfig)
   │  event EventHandler ExitRequested
   │
   ├─ ctor(string[] keywords, string replacement):
-  │       Regex.Escape each keyword → build _kvPattern + _presencePattern → CreateHandle
+  │       Clone keywords → Keywords/Replacement → _replacementForRegex
+  │       → BuildPatterns → CreateHandle
   │       → AddClipboardFormatListener → RegisterHotKey
-  ├─ WndProc: WM_CLIPBOARDUPDATE → HandleClipboard()
+  ├─ BuildPatterns(string[] keywords): builds _kvPattern + _presencePattern
+  ├─ UpdateConfig(string[] keywords, string replacement):
+  │       hot-reload keywords and replacement; rebuilds both Regex objects
+  ├─ WndProc: WM_CLIPBOARDUPDATE → HandleClipboard() (skipped when Paused)
   │           WM_HOTKEY          → ExitRequested (if not null)
   ├─ HandleClipboard:
+  │     Paused = true → return immediately
   │     Branch 1 (_kvPattern matches):
   │       collect hit keywords → _dialogOpen=true → ConfirmForm.ShowDialog
   │       → (OK) redact via _kvPattern.Replace → unhook → SetText → rehook
@@ -56,10 +64,32 @@ WarningForm : Form
   ├─ ctor(string keywordsSummary): informs user that automatic redaction is not possible
   └─ OK 按鈕 → DialogResult.OK (AcceptButton)
 
+SettingsForm : Form
+  │  TopMost=false, FixedDialog, ShowInTaskbar=true, CenterScreen
+  │  ClientSize=(430,340)
+  │  _keywordList: ListBox (SelectionMode.One, Sorted=false)
+  │  _newKeywordBox: TextBox (Enter key triggers Add)
+  │  _replacementBox: TextBox
+  │  _configDir: string (path to write blacklist.txt + replacement.txt)
+  │  UpdatedKeywords: string[]    (populated on Save)
+  │  UpdatedReplacement: string   (populated on Save)
+  ├─ ctor(string[] currentKeywords, string currentReplacement, string configDir)
+  ├─ Add: trim + case-insensitive dedup → add to ListBox
+  ├─ Remove Selected: removes currently selected ListBox item (no-op if none)
+  ├─ Save: validate (≥1 keyword) → WriteConfigFiles → set Updated* → DialogResult.OK
+  └─ WriteConfigFiles: blacklist.txt (UTF-8 no BOM, comment header) + replacement.txt
+
 MonitorContext : ApplicationContext
-  ├─ ctor(string[] keywords, string replacement)
-  ├─ 持有 ClipboardMonitor + NotifyIcon + ContextMenuStrip
-  ├─ tray Exit 選單 → ExitThread()
+  │  _monitor: ClipboardMonitor
+  │  _tray: NotifyIcon
+  │  _pauseMenuItem: ToolStripMenuItem  (text toggles between Pause/Resume)
+  │  _configDir: string
+  ├─ ctor(string[] keywords, string replacement, string configDir)
+  │     tray menu: [Pause Monitoring] ─── [Settings...] ─── [Exit]
+  │     tray.DoubleClick → OnSettings
+  │     tray.Text = "Clip Assistant - Active"
+  ├─ OnPauseToggle: _monitor.Paused ↔ true/false; update menu text + tooltip
+  ├─ OnSettings: show SettingsForm; on OK → _monitor.UpdateConfig(...)
   ├─ monitor.ExitRequested → ExitThread()
   └─ Dispose(bool): tray.Visible=false → tray.Dispose() → monitor.Dispose()
 ```
@@ -79,6 +109,7 @@ ClipboardMonitor.WndProc
     │
     └─ HandleClipboard()
            │
+           ├─ Paused = true? → return (無任何 dialog)
            ├─ Clipboard.GetText()  [ExternalException → return]
            ├─ string.IsNullOrEmpty → return
            │
@@ -88,7 +119,7 @@ ClipboardMonitor.WndProc
            │       ├─ ConfirmForm.ShowDialog(summary)
            │       │       ├─ Cancel → return
            │       │       └─ OK:
-           │       │             redacted = _kvPattern.Replace(text, "$1$2" + _replacement)
+           │       │             redacted = _kvPattern.Replace(text, "$1$2" + _replacementForRegex)
            │       │             RemoveClipboardFormatListener
            │       │             Clipboard.SetText(redacted)
            │       │             AddClipboardFormatListener
@@ -107,6 +138,20 @@ WM_HOTKEY / Click → ExitRequested → ApplicationContext.ExitThread()
     │
     ▼
 Application.Run() 返回 → finally → context.Dispose()
+
+[tray Pause Monitoring]
+    │
+    ▼
+OnPauseToggle → _monitor.Paused = true → menu text = "Resume Monitoring"
+              → _tray.Text = "Clip Assistant - Paused"
+
+[tray Settings... 或 tray DoubleClick]
+    │
+    ▼
+OnSettings → SettingsForm.ShowDialog()
+    ├─ Cancel → 不做任何變更
+    └─ OK → _monitor.UpdateConfig(sf.UpdatedKeywords, sf.UpdatedReplacement)
+              → BuildPatterns 重新編譯 Regex (立即生效，無須重啟)
 ```
 
 ### 進入點
@@ -114,9 +159,9 @@ Application.Run() 返回 → finally → context.Dispose()
 PowerShell 端：
 
 1. STA 檢查（必要時重啟自身）
-2. `Add-Type` 載入三個 C# 類別（`ConfirmForm`、`ClipboardMonitor`、`MonitorContext`）
+2. `Add-Type` 載入五個 C# 類別（`ConfirmForm`、`WarningForm`、`SettingsForm`、`ClipboardMonitor`、`MonitorContext`）
 3. 讀取 `blacklist.txt`（關鍵字陣列）與 `replacement.txt`（遮罩字串）；任一缺失或為空則使用內建預設並輸出 Warning
-4. `Application.Run(new MonitorContext(keywords, replacement))` — 阻塞直到 `ExitThread()` 被呼叫
+4. `Application.Run(new MonitorContext(keywords, replacement, $PSScriptRoot))` — 阻塞直到 `ExitThread()` 被呼叫
 
 ---
 
@@ -204,15 +249,18 @@ powershell.exe (MTA，非 STA)
         ▼（新 STA 程序）
     powershell.exe -STA
         │
-        ├─ Add-Type: ConfirmForm, ClipboardMonitor, MonitorContext
+        ├─ Add-Type: ConfirmForm, WarningForm, SettingsForm, ClipboardMonitor, MonitorContext
         ├─ 讀取設定檔（blacklist.txt + replacement.txt）
         │     ├─ 檔不存在 / 為空 / 全為註解 → 內建預設 + Write-Warning
         │     └─ 正常 → $keywordsArray, $replacementToken
         ├─ Application.EnableVisualStyles()
-        ├─ new MonitorContext($keywordsArray, $replacementToken)
-        │     ├─ 建立 NotifyIcon（tray 圖示可見）
+        ├─ new MonitorContext($keywordsArray, $replacementToken, $PSScriptRoot)
+        │     ├─ 建立 NotifyIcon（tray 圖示可見，Tooltip = "Clip Assistant - Active"）
+        │     │     選單：[Pause Monitoring] ─── [Settings...] ─── [Exit]
         │     └─ new ClipboardMonitor($keywordsArray, $replacementToken)
-        │           ├─ Build _pattern from keywords
+        │           ├─ Clone keywords → Keywords / Replacement
+        │           ├─ _replacementForRegex = replacement.Replace("$", "$$")
+        │           ├─ BuildPatterns → _kvPattern + _presencePattern
         │           ├─ CreateHandle()
         │           ├─ AddClipboardFormatListener()
         │           └─ RegisterHotKey(Ctrl+Alt+Q)
@@ -224,6 +272,25 @@ powershell.exe (MTA，非 STA)
 
     [退出路徑 B：tray Exit 選單]
         ToolStripMenuItem.Click → ExitThread() → Application.Run() 返回
+
+    [Pause 路徑]
+        tray → Pause Monitoring → OnPauseToggle
+            → _monitor.Paused = true
+            → _pauseMenuItem.Text = "Resume Monitoring"
+            → _tray.Text = "Clip Assistant - Paused"
+        (WM_CLIPBOARDUPDATE 到達時 HandleClipboard 立即 return，不顯示任何 dialog)
+        tray → Resume Monitoring → OnPauseToggle
+            → _monitor.Paused = false
+            → 恢復正常監聽
+
+    [Settings 路徑]
+        tray → Settings... (或雙擊 tray 圖示) → OnSettings
+            → SettingsForm.ShowDialog()
+                ├─ Cancel → 不變更
+                └─ OK → SettingsForm.WriteConfigFiles()（寫入 blacklist.txt + replacement.txt）
+                       → _monitor.UpdateConfig(keywords, replacement)
+                             → Clone → Keywords / Replacement / _replacementForRegex
+                             → BuildPatterns（重新編譯 Regex，立即生效）
 
     Application.Run() 返回
         │
@@ -276,13 +343,22 @@ Windows PowerShell 5.1 的 `Add-Type` 使用內建 CodeDOM 編譯器，語言版
 - `nameof(...)`
 - auto-property initializers (`public int X { get; } = 1;`)
 
-對應的 C# 5 寫法：null-conditional 改為 `var h = E; if (h != null) h(...)` 或 `if (E != null) E(...)`；字串插值改為 `string.Format(...)`。本腳本已採用 C# 5 相容寫法，本次改版亦維持 C# 5 相容（無 `?.`、無字串插值、無 expression-bodied member）。
+對應的 C# 5 寫法：null-conditional 改為 `var h = E; if (h != null) h(...)` 或 `if (E != null) E(...)`；字串插值改為 `string.Format(...)`；event handler 改用 `new EventHandler(Method)` 或 `delegate(...)` 語法。本腳本已採用 C# 5 相容寫法，本次改版亦維持 C# 5 相容（無 `?.`、無字串插值、無 expression-bodied member）。
 
 **PowerShell 5.1 vs 7+ 的 WinForms 相容性**
 PowerShell 7+（.NET Core / .NET 5+）的 WinForms 支援需要目標框架對應。在 PowerShell 7 下，`System.Windows.Forms` 可能需要額外的 .NET Windows 相容套件。**建議以 Windows PowerShell 5.1 執行本腳本**（`npm run dev:win` 使用 `powershell.exe` 即為 5.1）。若確有需要在 pwsh 7+ 執行，可考慮安裝 `Microsoft.Windows.Compatibility` NuGet 套件，或改用 `-UseWindowsPowerShell` 模式。腳本的 STA relaunch 邏輯會自動沿用原始啟動的 shell 執行檔（`powershell.exe` 或 `pwsh.exe`）。
 
-**設定檔載入時機**
-`blacklist.txt` 與 `replacement.txt` 僅在腳本啟動時讀取一次。編輯設定檔後需重啟腳本才會生效。刻意不實作 file watcher，以避免額外複雜度與執行緒同步問題。
+**設定檔載入時機（v1 行為已變更）**
+啟動時讀取 `blacklist.txt` 與 `replacement.txt` 作為初始值。啟動後可透過 tray → Settings… 即時修改，無須重啟腳本。SettingsForm 的 Save 動作同步寫入磁碟並呼叫 `UpdateConfig`，讓新設定立即套用至 Regex。
+
+**Replacement token 中的 `$` 字元**
+`Regex.Replace` 的 replacement string 中 `$` 有特殊意義（back-reference，如 `$1`、`$2`）。SettingsForm 輸入的 replacement token 在使用前會透過 `.Replace("$", "$$")` 逸脫，儲存為 `_replacementForRegex`。使用者輸入 `$1` 也不會造成 back-reference 問題；輸入 `***` 則轉換結果仍為 `***`（無 `$` 字元，不受影響）。
+
+**Settings 儲存格式**
+SettingsForm 的 Save 動作以 UTF-8 without BOM 寫入 `blacklist.txt`（含固定 comment header）與 `replacement.txt`，並同步更新記憶體中的 regex，無須重啟腳本。
+
+**VBScript 啟動器的 Windows 版本相容性**
+`launch.vbs` 使用 `WScript.Shell.Run`，在 Windows 10/11 已知正常。Windows 11 23H2 開始 VBScript 被列為「deprecated」，但 VBScript 引擎在 Windows 11 24H2 仍預設可用，預計完全移除時程為 Windows 11 之後的版本。若未來失效，可改用 PowerShell 的 `-WindowStyle Hidden` 捷徑方式。
 
 **設定檔意外時的 fallback**
 任一設定檔不存在、內容為空，或所有行均為空白/註解時，腳本改用內建預設（關鍵字：`host, password, pw, account, authorization`；遮罩字串：`***`）並輸出 `Write-Warning` 至 stderr 提示檔案路徑，腳本繼續正常執行。
@@ -308,8 +384,20 @@ Group 3 的值終止於逗號、whitespace、分號、`&`。因此：
 
 **啟動與退出**
 
-- 執行 `npm run dev:win`，確認系統列出現圖示，Tooltip 顯示「Clip Assistant」
+- 執行 `npm run dev:win`，確認系統列出現圖示，Tooltip 顯示「Clip Assistant - Active」
 - 按 `Ctrl+Alt+Q` 或右鍵系統列 → Exit，確認程式結束、圖示消失
+
+**Settings 測試**
+
+右鍵托盤 → Settings… → 在 New keyword 欄輸入 `secret` → 按 Add → 按 Save → 複製文字 `secret: abc` → 確認 Replace dialog 顯示 `secret` → 按 Replace → 貼上結果應為 `secret: ***`
+
+**Pause 測試**
+
+右鍵托盤 → Pause Monitoring → 確認 Tooltip 變為「Clip Assistant - Paused」、選單文字變為「Resume Monitoring」 → 複製 `PW: 123` → 確認無任何 dialog 彈出 → 右鍵 → Resume Monitoring → 複製 `PW: 123` → 確認 Replace dialog 再次出現
+
+**Settings 即時生效**
+
+Settings 儲存後不需重啟即可驗證：新關鍵字立即參與剪貼簿偵測。
 
 ---
 
@@ -412,3 +500,27 @@ Last error: FATAL: password authentication failed for user "service_account_prod
 **防堆疊驗證**
 
 對話框開啟後（不關閉），再次複製含敏感關鍵字的文字；關閉現有對話框後確認不再彈出第二個對話框。
+
+---
+
+## 8. 安裝與啟動
+
+### 啟動方式
+
+**開發期間**（有 Node.js）：
+```
+npm run dev:win
+```
+
+**日常使用（隱藏 console 視窗）**：
+
+直接執行 `windows/launch.vbs`，或建立桌面捷徑：
+1. 在 `windows/launch.vbs` 上按右鍵 → 建立捷徑
+2. 將捷徑移到桌面
+3. （選用）重新命名捷徑為 "Clip Assistant"
+
+### 更新設定
+
+啟動後，右鍵托盤圖示 → **Settings…** 即可新增 / 移除監控關鍵字或修改替換文字。
+
+設定儲存後立即生效，無須重啟。

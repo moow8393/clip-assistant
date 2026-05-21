@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 # monitor.ps1
 # Clipboard monitor that detects sensitive keywords and redacts their values.
 # Must run in STA mode for WinForms/Clipboard access; relaunches itself with -STA if needed.
@@ -13,7 +13,7 @@ param(
 # ---------------------------------------------------------------------------
 if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
     if ($_StaRelaunch) {
-        # Guard: relaunch already attempted but still not STA — abort rather than loop.
+        # Guard: relaunch already attempted but still not STA ??abort rather than loop.
         Write-Error "Failed to relaunch in STA mode. Exiting."
         exit 1
     }
@@ -46,14 +46,16 @@ if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
 # ---------------------------------------------------------------------------
 if (-not ([System.Management.Automation.PSTypeName]'ClipAssistant.ClipboardMonitor').Type) {
 
-Add-Type -ReferencedAssemblies @(
-    'System.Windows.Forms',
-    'System.Drawing',
-    'System.Runtime.InteropServices'
-) -TypeDefinition @'
+    Add-Type -ReferencedAssemblies @(
+        'System.Windows.Forms',
+        'System.Drawing',
+        'System.Runtime.InteropServices'
+    ) -TypeDefinition @'
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
@@ -82,7 +84,7 @@ namespace ClipAssistant
             this.StartPosition   = FormStartPosition.CenterScreen;
             this.ClientSize      = new System.Drawing.Size(420, 130);
 
-            // Message label — shows which keywords were detected, not the raw value
+            // Message label ??shows which keywords were detected, not the raw value
             _messageLabel = new Label();
             _messageLabel.Text     = "Detected sensitive keyword(s): " + keywordsSummary + "\nRedact value(s)?";
             _messageLabel.AutoSize = false;
@@ -150,6 +152,201 @@ namespace ClipAssistant
     }
 
     // -----------------------------------------------------------------------
+    // SettingsForm: a non-TopMost dialog for managing the keyword blacklist and
+    // replacement token.  On Save, writes blacklist.txt and replacement.txt to
+    // the config directory and exposes the updated values via properties.
+    // -----------------------------------------------------------------------
+    public sealed class SettingsForm : Form
+    {
+        private ListBox  _keywordList;
+        private TextBox  _newKeywordBox;
+        private TextBox  _replacementBox;
+        private Button   _addButton;
+        private Button   _removeButton;
+        private Button   _saveButton;
+        private Button   _cancelButton;
+
+        private string   _configDir;
+
+        public string[]  UpdatedKeywords    { get; private set; }
+        public string    UpdatedReplacement { get; private set; }
+
+        public SettingsForm(string[] currentKeywords, string currentReplacement, string configDir)
+        {
+            _configDir = configDir;
+
+            this.Text            = "Clip Assistant Settings";
+            this.TopMost         = false;
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MinimizeBox     = false;
+            this.MaximizeBox     = false;
+            this.ShowInTaskbar   = true;
+            this.StartPosition   = FormStartPosition.CenterScreen;
+            this.ClientSize      = new System.Drawing.Size(430, 340);
+
+            // --- Labels ---
+            Label kwLabel = new Label();
+            kwLabel.Text     = "Monitored Keywords:";
+            kwLabel.AutoSize = true;
+            kwLabel.Location = new System.Drawing.Point(10, 12);
+            this.Controls.Add(kwLabel);
+
+            Label replLabel = new Label();
+            replLabel.Text     = "Replacement text:";
+            replLabel.AutoSize = true;
+            replLabel.Location = new System.Drawing.Point(10, 248);
+            this.Controls.Add(replLabel);
+
+            Label newKwLabel = new Label();
+            newKwLabel.Text     = "New keyword:";
+            newKwLabel.AutoSize = true;
+            newKwLabel.Location = new System.Drawing.Point(10, 178);
+            this.Controls.Add(newKwLabel);
+
+            // --- Keyword ListBox ---
+            _keywordList = new ListBox();
+            _keywordList.Location      = new System.Drawing.Point(10, 32);
+            _keywordList.Size          = new System.Drawing.Size(410, 130);
+            _keywordList.SelectionMode = SelectionMode.One;
+            _keywordList.Sorted        = false;
+            foreach (string kw in currentKeywords)
+                _keywordList.Items.Add(kw);
+            this.Controls.Add(_keywordList);
+
+            // --- New keyword TextBox ---
+            _newKeywordBox = new TextBox();
+            _newKeywordBox.Location = new System.Drawing.Point(100, 175);
+            _newKeywordBox.Size     = new System.Drawing.Size(220, 23);
+            // Enter key triggers Add action ??avoids closing the form via AcceptButton
+            _newKeywordBox.KeyDown += delegate(object s, KeyEventArgs e)
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    e.SuppressKeyPress = true;
+                    AddKeyword();
+                }
+            };
+            this.Controls.Add(_newKeywordBox);
+
+            // --- Add button ---
+            _addButton = new Button();
+            _addButton.Text     = "Add";
+            _addButton.Location = new System.Drawing.Point(330, 174);
+            _addButton.Size     = new System.Drawing.Size(90, 25);
+            _addButton.Click   += delegate(object s, EventArgs e) { AddKeyword(); };
+            this.Controls.Add(_addButton);
+
+            // --- Remove Selected button ---
+            _removeButton = new Button();
+            _removeButton.Text     = "Remove Selected";
+            _removeButton.Location = new System.Drawing.Point(330, 207);
+            _removeButton.Size     = new System.Drawing.Size(90, 25);
+            _removeButton.Click   += delegate(object s, EventArgs e)
+            {
+                if (_keywordList.SelectedIndex >= 0)
+                    _keywordList.Items.RemoveAt(_keywordList.SelectedIndex);
+            };
+            this.Controls.Add(_removeButton);
+
+            // --- Replacement TextBox ---
+            _replacementBox = new TextBox();
+            _replacementBox.Location = new System.Drawing.Point(140, 245);
+            _replacementBox.Size     = new System.Drawing.Size(150, 23);
+            _replacementBox.Text     = currentReplacement;
+            this.Controls.Add(_replacementBox);
+
+            // --- Cancel button ---
+            _cancelButton = new Button();
+            _cancelButton.Text         = "Cancel";
+            _cancelButton.DialogResult = DialogResult.Cancel;
+            _cancelButton.Location     = new System.Drawing.Point(225, 295);
+            _cancelButton.Size         = new System.Drawing.Size(90, 30);
+            this.Controls.Add(_cancelButton);
+
+            // --- Save button (no DialogResult ??validation runs first) ---
+            _saveButton = new Button();
+            _saveButton.Text     = "Save";
+            _saveButton.Location = new System.Drawing.Point(325, 295);
+            _saveButton.Size     = new System.Drawing.Size(90, 30);
+            _saveButton.Click   += delegate(object s, EventArgs e) { SaveSettings(); };
+            this.Controls.Add(_saveButton);
+
+            // CancelButton closes on Esc; AcceptButton intentionally not set so
+            // Enter in the form body does not accidentally trigger Save.
+            this.CancelButton = _cancelButton;
+        }
+
+        // Adds the trimmed text from _newKeywordBox to the list if non-empty and not duplicate.
+        private void AddKeyword()
+        {
+            string kw = _newKeywordBox.Text.Trim();
+            if (kw.Length == 0)
+                return;
+
+            // Case-insensitive duplicate check
+            foreach (object item in _keywordList.Items)
+            {
+                if (string.Compare(item.ToString(), kw, StringComparison.OrdinalIgnoreCase) == 0)
+                    return;
+            }
+
+            _keywordList.Items.Add(kw);
+            _newKeywordBox.Clear();
+        }
+
+        // Validates input, writes config files, and closes with OK.
+        private void SaveSettings()
+        {
+            if (_keywordList.Items.Count == 0)
+            {
+                MessageBox.Show(
+                    "At least one keyword is required.",
+                    "Clip Assistant",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            string replacement = _replacementBox.Text.Trim();
+            if (replacement.Length == 0)
+                replacement = "***";
+
+            // Collect keywords from ListBox
+            string[] keywords = new string[_keywordList.Items.Count];
+            for (int i = 0; i < _keywordList.Items.Count; i++)
+                keywords[i] = _keywordList.Items[i].ToString();
+
+            WriteConfigFiles(keywords, replacement);
+
+            UpdatedKeywords    = keywords;
+            UpdatedReplacement = replacement;
+            this.DialogResult  = DialogResult.OK;
+        }
+
+        // Persists keyword list and replacement token to disk.
+        // Uses UTF-8 without BOM to stay consistent with the existing config format.
+        private void WriteConfigFiles(string[] keywords, string replacement)
+        {
+            // Write blacklist.txt ??preserve the comment header
+            using (StreamWriter sw = new StreamWriter(
+                Path.Combine(_configDir, "blacklist.txt"), false,
+                new UTF8Encoding(false)))  // UTF-8 without BOM
+            {
+                sw.WriteLine("# One keyword per line. Case-insensitive. Lines starting with # are comments.");
+                sw.WriteLine("# Examples of additional keywords to add: token, secret, api_key");
+                foreach (string kw in _keywordList.Items)
+                    sw.WriteLine(kw);
+            }
+
+            // Write replacement.txt
+            File.WriteAllText(
+                Path.Combine(_configDir, "replacement.txt"),
+                replacement,
+                new UTF8Encoding(false));
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // ClipboardMonitor: hidden NativeWindow that receives WM_CLIPBOARDUPDATE
     // via AddClipboardFormatListener and WM_HOTKEY for the Ctrl+Alt+Q shortcut.
     //
@@ -167,7 +364,7 @@ namespace ClipAssistant
         private const int WM_CLIPBOARDUPDATE = 0x031D;
         private const int WM_HOTKEY          = 0x0312;
 
-        // Hotkey identifier — arbitrary application-defined value
+        // Hotkey identifier ??arbitrary application-defined value
         private const int HOTKEY_ID = 0xB001;
 
         // Modifiers: MOD_CONTROL | MOD_ALT
@@ -181,13 +378,23 @@ namespace ClipAssistant
         // _presencePattern matches keyword word-boundary only (fallback warning).
         private Regex  _kvPattern;
         private Regex  _presencePattern;
-        private string _replacement;
+
+        // _replacementForRegex is Replacement with "$" doubled to prevent
+        // Regex.Replace from interpreting "$1" etc. as back-references.
+        private string _replacementForRegex;
 
         private bool _dialogOpen;
         private bool _disposed;
 
         // Raised when the user triggers exit via hotkey or tray menu
         public event EventHandler ExitRequested;
+
+        // Read-only snapshot of the current keyword list (updated by UpdateConfig).
+        public string[] Keywords    { get; private set; }
+        // Raw replacement token as entered by the user.
+        public string   Replacement { get; private set; }
+        // When true, WM_CLIPBOARDUPDATE events are silently ignored.
+        public bool     Paused      { get; set; }
 
         // --------------------------------------------------------------------
         // P/Invoke declarations
@@ -214,24 +421,13 @@ namespace ClipAssistant
         // --------------------------------------------------------------------
         public ClipboardMonitor(string[] keywords, string replacement)
         {
-            // Escape each keyword to handle regex metacharacters (e.g. "auth.token")
-            string[] escaped = new string[keywords.Length];
-            for (int i = 0; i < keywords.Length; i++)
-                escaped[i] = Regex.Escape(keywords[i]);
+            Keywords    = (string[])keywords.Clone();
+            Replacement = replacement;
 
-            // k-v pattern: \b(kw1|kw2|...)("?\s*[:=]\s*"?(?:Bearer\s+|Basic\s+)?)([^",\s;&]+)
-            // Group 1 = keyword, Group 2 = separator (optionally quoted + auth scheme prefix),
-            // Group 3 = value (replaced). The double-quote in character class is represented
-            // as "" inside a verbatim string literal: [^"",\s;&] means [^",\s;&].
-            string kvPat = @"\b(" + string.Join("|", escaped) + @")(""?\s*[:=]\s*""?(?:Bearer\s+|Basic\s+)?)([^"",\s;&]+)";
-            _kvPattern   = new Regex(kvPat, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+            // Compute the regex-safe replacement string once and cache it.
+            _replacementForRegex = replacement.Replace("$", "$$");
 
-            // Presence pattern: \b(kw1|kw2|...)\b — fires when a keyword appears but
-            // has no adjacent k-v structure, e.g. column headers in a table.
-            string presencePat = @"\b(" + string.Join("|", escaped) + @")\b";
-            _presencePattern = new Regex(presencePat, RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-            _replacement = replacement;
+            BuildPatterns(keywords);
 
             CreateHandle(new CreateParams());
 
@@ -256,6 +452,41 @@ namespace ClipAssistant
         }
 
         // --------------------------------------------------------------------
+        // UpdateConfig: hot-reload keywords and replacement token without restart.
+        // Called from the UI thread after SettingsForm closes with DialogResult.OK.
+        // --------------------------------------------------------------------
+        public void UpdateConfig(string[] keywords, string replacement)
+        {
+            Keywords             = (string[])keywords.Clone();
+            Replacement          = replacement;
+            _replacementForRegex = replacement.Replace("$", "$$");
+
+            BuildPatterns(keywords);
+        }
+
+        // Shared helper: compiles both Regex objects from a keyword array.
+        // C# 5 compatible ??no expression-bodied members or string interpolation.
+        private void BuildPatterns(string[] keywords)
+        {
+            string[] escaped = new string[keywords.Length];
+            for (int i = 0; i < keywords.Length; i++)
+                escaped[i] = Regex.Escape(keywords[i]);
+
+            // k-v pattern: \b(kw1|kw2|...)("?\s*[:=]\s*"?(?:Bearer\s+|Basic\s+)?)([^",\s;&]+)
+            // Group 1 = keyword, Group 2 = separator (optionally quoted + auth scheme prefix),
+            // Group 3 = value (replaced). The double-quote in character class is represented
+            // as "" inside a verbatim string literal: [^"",\s;&] means [^",\s;&].
+            string kvPat = @"\b(" + string.Join("|", escaped) +
+                           @")(""?\s*[:=]\s*""?(?:Bearer\s+|Basic\s+)?)([^"",\s;&]+)";
+            _kvPattern = new Regex(kvPat, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+            // Presence pattern: \b(kw1|kw2|...)\b ??fires when a keyword appears but
+            // has no adjacent k-v structure, e.g. column headers in a table.
+            string presencePat = @"\b(" + string.Join("|", escaped) + @")\b";
+            _presencePattern = new Regex(presencePat, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        }
+
+        // --------------------------------------------------------------------
         // WndProc: message dispatch for clipboard and hotkey events.
         // --------------------------------------------------------------------
         protected override void WndProc(ref Message m)
@@ -269,7 +500,7 @@ namespace ClipAssistant
                     break;
 
                 case WM_HOTKEY:
-                    // Note: avoid C# 6 null-conditional operator (?.) — PowerShell 5.1's
+                    // Note: avoid C# 6 null-conditional operator (?.) ??PowerShell 5.1's
                     // Add-Type uses a C# 5 compiler.
                     if (m.WParam.ToInt32() == HOTKEY_ID && ExitRequested != null)
                         ExitRequested(this, EventArgs.Empty);
@@ -289,22 +520,25 @@ namespace ClipAssistant
         //   (e.g. table column headers). Show WarningForm for manual review.
         //   Branch 2 is only reached when Branch 1 produces zero matches, so
         //   mixed text that has both k-v hits and bare keywords only shows
-        //   ConfirmForm — the two dialogs never stack.
+        //   ConfirmForm ??the two dialogs never stack.
         // --------------------------------------------------------------------
         private void HandleClipboard()
         {
+            // Paused flag: silently ignore clipboard events when monitoring is suspended.
+            if (Paused) return;
+
             string text;
             try { text = Clipboard.GetText(); }
             catch (ExternalException) { return; }
 
             if (string.IsNullOrEmpty(text)) return;
 
-            // --- Branch 1: k-v pattern matches → Replace dialog ---
+            // --- Branch 1: k-v pattern matches ??Replace dialog ---
             MatchCollection kvMatches = _kvPattern.Matches(text);
             if (kvMatches.Count > 0)
             {
                 // Collect distinct keyword names (lowercase) for the dialog summary.
-                // Avoid System.Linq — HashSet.CopyTo is available since .NET 2.0.
+                // Avoid System.Linq ??HashSet.CopyTo is available since .NET 2.0.
                 HashSet<string> hits = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (Match m in kvMatches)
                     hits.Add(m.Groups[1].Value.ToLowerInvariant());
@@ -321,8 +555,9 @@ namespace ClipAssistant
                         if (dlg.ShowDialog() == DialogResult.OK)
                         {
                             // Replace only group 3 (value); groups 1 and 2 are preserved.
-                            // * has no special meaning in .NET replacement strings, no escape needed.
-                            string redacted = _kvPattern.Replace(text, "$1$2" + _replacement);
+                            // _replacementForRegex has "$" doubled to prevent back-reference
+                            // interpretation by Regex.Replace.
+                            string redacted = _kvPattern.Replace(text, "$1$2" + _replacementForRegex);
 
                             // Anti-recursion layer 1: unhook before writing.
                             RemoveClipboardFormatListener(this.Handle);
@@ -336,7 +571,7 @@ namespace ClipAssistant
                 return;
             }
 
-            // --- Branch 2: keyword present but no k-v structure → Warning only ---
+            // --- Branch 2: keyword present but no k-v structure ??Warning only ---
             MatchCollection presenceMatches = _presencePattern.Matches(text);
             if (presenceMatches.Count > 0)
             {
@@ -383,33 +618,77 @@ namespace ClipAssistant
 
     // -----------------------------------------------------------------------
     // MonitorContext: ApplicationContext that wires the ClipboardMonitor to a
-    // NotifyIcon so the user can exit via tray right-click or Ctrl+Alt+Q.
-    // Accepts the keyword list and replacement token to forward to ClipboardMonitor.
+    // NotifyIcon with Pause/Resume and Settings tray menu items.
     // -----------------------------------------------------------------------
     public sealed class MonitorContext : ApplicationContext
     {
-        private ClipboardMonitor _monitor;
-        private NotifyIcon       _tray;
+        private ClipboardMonitor  _monitor;
+        private NotifyIcon        _tray;
+        private ToolStripMenuItem _pauseMenuItem;
+        private string            _configDir;
 
-        public MonitorContext(string[] keywords, string replacement)
+        public MonitorContext(string[] keywords, string replacement, string configDir)
         {
-            // Build tray context menu
-            var exitItem = new ToolStripMenuItem("Exit");
-            exitItem.Click += (s, e) => ExitThread();
+            _configDir = configDir;
 
+            // --- Pause/Resume toggle menu item ---
+            _pauseMenuItem        = new ToolStripMenuItem("Pause Monitoring");
+            _pauseMenuItem.Click += new EventHandler(OnPauseToggle);
+
+            // --- Settings menu item ---
+            var settingsItem = new ToolStripMenuItem("Settings...");
+            settingsItem.Click += new EventHandler(OnSettings);
+
+            // --- Exit menu item ---
+            var exitItem = new ToolStripMenuItem("Exit");
+            exitItem.Click += delegate(object s, EventArgs e) { ExitThread(); };
+
+            // Build menu with separators between the three logical groups
             var menu = new ContextMenuStrip();
+            menu.Items.Add(_pauseMenuItem);
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(settingsItem);
+            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(exitItem);
 
             // Configure tray icon
-            _tray              = new NotifyIcon();
-            _tray.Icon         = System.Drawing.SystemIcons.Application;
-            _tray.Text         = "Clip Assistant";
-            _tray.ContextMenuStrip = menu;
-            _tray.Visible      = true;
+            _tray                   = new NotifyIcon();
+            _tray.Icon              = System.Drawing.SystemIcons.Application;
+            _tray.Text              = "Clip Assistant - Active";
+            _tray.ContextMenuStrip  = menu;
+            _tray.Visible           = true;
+            // Double-click also opens Settings for quick access
+            _tray.DoubleClick      += new EventHandler(OnSettings);
 
             // Create monitor; wire ExitRequested to ApplicationContext.ExitThread
             _monitor = new ClipboardMonitor(keywords, replacement);
-            _monitor.ExitRequested += (s, e) => ExitThread();
+            _monitor.ExitRequested += delegate(object s, EventArgs e) { ExitThread(); };
+        }
+
+        // Toggles the Paused state and updates the tray tooltip and menu label.
+        private void OnPauseToggle(object sender, EventArgs e)
+        {
+            _monitor.Paused = !_monitor.Paused;
+            if (_monitor.Paused)
+            {
+                _pauseMenuItem.Text = "Resume Monitoring";
+                _tray.Text          = "Clip Assistant - Paused";
+            }
+            else
+            {
+                _pauseMenuItem.Text = "Pause Monitoring";
+                _tray.Text          = "Clip Assistant - Active";
+            }
+        }
+
+        // Opens SettingsForm and applies the updated config if the user saves.
+        private void OnSettings(object sender, EventArgs e)
+        {
+            using (SettingsForm sf = new SettingsForm(_monitor.Keywords, _monitor.Replacement, _configDir))
+            {
+                if (sf.ShowDialog() == DialogResult.OK)
+                    _monitor.UpdateConfig(sf.UpdatedKeywords, sf.UpdatedReplacement);
+            }
         }
 
         // Override Dispose to guarantee ordered cleanup of both managed objects.
@@ -445,16 +724,16 @@ namespace ClipAssistant
 # Both files are expected in the same directory as this script ($PSScriptRoot).
 # Defaults are used (with a warning) when a file is missing, empty, or all-comments.
 # ---------------------------------------------------------------------------
-$defaultKeywords    = @('host', 'password', 'pw', 'account', 'authorization')
+$defaultKeywords = @('host', 'password', 'pw', 'account', 'authorization')
 $defaultReplacement = '***'
 
-$blacklistPath    = Join-Path $PSScriptRoot 'blacklist.txt'
-$replacementPath  = Join-Path $PSScriptRoot 'replacement.txt'
+$blacklistPath = Join-Path $PSScriptRoot 'blacklist.txt'
+$replacementPath = Join-Path $PSScriptRoot 'replacement.txt'
 
 # --- blacklist.txt ---
 if (Test-Path $blacklistPath) {
     $rawLines = Get-Content -Path $blacklistPath
-    $seen     = [System.Collections.Generic.HashSet[string]]::new(
+    $seen = [System.Collections.Generic.HashSet[string]]::new(
         [System.StringComparer]::OrdinalIgnoreCase)
     $keywords = [System.Collections.Generic.List[string]]::new()
 
@@ -472,7 +751,8 @@ if (Test-Path $blacklistPath) {
         Write-Warning "blacklist.txt contains no effective entries. Using built-in defaults: $($defaultKeywords -join ', ')"
         $keywords = [System.Collections.Generic.List[string]]$defaultKeywords
     }
-} else {
+}
+else {
     Write-Warning "blacklist.txt not found at '$blacklistPath'. Using built-in defaults: $($defaultKeywords -join ', ')"
     $keywords = [System.Collections.Generic.List[string]]$defaultKeywords
 }
@@ -486,7 +766,8 @@ if (Test-Path $replacementPath) {
         Write-Warning "replacement.txt is empty. Using built-in default: '$defaultReplacement'"
         $replacementToken = $defaultReplacement
     }
-} else {
+}
+else {
     Write-Warning "replacement.txt not found at '$replacementPath'. Using built-in default: '$defaultReplacement'"
     $replacementToken = $defaultReplacement
 }
@@ -496,22 +777,20 @@ if (Test-Path $replacementPath) {
 # icon is always hidden even if an unhandled exception escapes Application.Run.
 # ---------------------------------------------------------------------------
 $context = $null
-try
-{
+try {
     [System.Windows.Forms.Application]::EnableVisualStyles()
     [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-    $context = New-Object ClipAssistant.MonitorContext -ArgumentList ($keywordsArray, $replacementToken)
+    $context = New-Object ClipAssistant.MonitorContext -ArgumentList ($keywordsArray, $replacementToken, $PSScriptRoot)
 
     # Blocks until ExitThread() is called (via hotkey or tray menu)
     [System.Windows.Forms.Application]::Run($context)
 }
-finally
-{
+finally {
     # Belt-and-suspenders: ensure the tray icon is removed even if Dispose was
     # not reached through the normal ApplicationContext disposal path.
-    if ($context -ne $null)
-    {
+    if ($null -ne $context) {
         $context.Dispose()
     }
 }
+

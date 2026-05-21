@@ -15,6 +15,12 @@ color: "blue"
 - **Win32 API**：以 P/Invoke 方式呼叫 `user32.dll`、`kernel32.dll`、`shell32.dll` 等
 - **WPF / WinForms**：非阻塞 UI 採用 Dispatcher / SynchronizationContext 模式
 
+# 檔案系統規則（不可違反）
+
+- **禁止在 `C:\` 任何位置建立檔案**，包括 `C:\Temp`、`C:\Windows\Temp` 等系統路徑
+- 所有暫存檔、除錯腳本、scratch 檔案一律建立在當前 **project 目錄**下（例如 `d:\projects\clip-assistant\.tmp\`）
+- 測試完畢後須自行清除暫存檔
+
 # 核心開發原則（不可違反）
 
 ## 1. 嚴禁輪詢，必須事件驅動
