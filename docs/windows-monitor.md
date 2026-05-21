@@ -2,16 +2,22 @@
 
 ## 1. 概述
 
-`windows/monitor.ps1` 是一個事件驅動的剪貼簿監聽腳本，用於偵測黑名單關鍵字並遮罩其值。
+`windows/src/Program.cs` 是一個事件驅動的剪貼簿監聽應用程式，編譯為 `windows/ClipAssistant.exe`，用於偵測黑名單關鍵字並遮罩其值。
 
-**執行方式**
+**啟動方式**
 
 ```
-npm run dev:win
-# 等同於：powershell -ExecutionPolicy Bypass -File ./windows/monitor.ps1
+# 建置（需要 .NET Framework 4.x csc.exe）
+npm run build:win
+
+# 建立桌面捷徑（執行一次）
+npm run setup:win
+
+# 之後直接雙擊桌面捷徑或執行 exe
+windows/ClipAssistant.exe
 ```
 
-腳本啟動後會在系統列顯示圖示（Tooltip：`Clip Assistant - Active`），靜默監聽剪貼簿，直到使用者透過熱鍵或系統列選單退出。
+程式啟動後會在系統列顯示藍底鎖頭圖示（Tooltip：`Clip Assistant - Active`），靜默監聽剪貼簿，直到使用者透過熱鍵或系統列選單退出。
 
 **使用情境**：貼出剪貼簿前自動遮罩敏感資訊（密碼、host、帳號等），避免含有 `password=secret` 或 `host: 192.168.1.1` 等敏感資料的文字被直接貼到其他工具。
 
@@ -22,6 +28,19 @@ npm run dev:win
 ### 類別圖
 
 ```
+Program (internal, static)
+  │  DefaultKeywords: string[]  { "host", "password", "pw", "account", "authorization" }
+  │  DefaultReplacement: string "***"
+  │
+  ├─ [STAThread] Main():
+  │       LoadKeywords(baseDir) → string[]
+  │       LoadReplacement(baseDir) → string
+  │       Application.Run(new MonitorContext(...))
+  ├─ LoadKeywords(baseDir): parses blacklist.txt; skips blanks/#comments; case-insensitive dedup
+  │       → falls back to DefaultKeywords when file missing or yields no entries
+  └─ LoadReplacement(baseDir): reads replacement.txt (trimmed)
+          → falls back to DefaultReplacement when file missing or empty
+
 ClipboardMonitor : NativeWindow, IDisposable
   │  const WM_CLIPBOARDUPDATE  = 0x031D
   │  const WM_HOTKEY           = 0x0312
@@ -82,16 +101,18 @@ SettingsForm : Form
 MonitorContext : ApplicationContext
   │  _monitor: ClipboardMonitor
   │  _tray: NotifyIcon
+  │  _trayIcon: Icon             (GDI+ drawn 16x16 lock icon; disposed on exit)
   │  _pauseMenuItem: ToolStripMenuItem  (text toggles between Pause/Resume)
   │  _configDir: string
   ├─ ctor(string[] keywords, string replacement, string configDir)
   │     tray menu: [Pause Monitoring] ─── [Settings...] ─── [Exit]
   │     tray.DoubleClick → OnSettings
   │     tray.Text = "Clip Assistant - Active"
+  ├─ CreateLockIcon(): draws 16x16 padlock (blue bg, white shackle+body, blue keyhole)
   ├─ OnPauseToggle: _monitor.Paused ↔ true/false; update menu text + tooltip
   ├─ OnSettings: show SettingsForm; on OK → _monitor.UpdateConfig(...)
   ├─ monitor.ExitRequested → ExitThread()
-  └─ Dispose(bool): tray.Visible=false → tray.Dispose() → monitor.Dispose()
+  └─ Dispose(bool): tray.Visible=false → tray.Dispose() → trayIcon.Dispose() → monitor.Dispose()
 ```
 
 ### 訊息流
@@ -150,24 +171,29 @@ OnPauseToggle → _monitor.Paused = true → menu text = "Resume Monitoring"
     ▼
 OnSettings → SettingsForm.ShowDialog()
     ├─ Cancel → 不做任何變更
-    └─ OK → _monitor.UpdateConfig(sf.UpdatedKeywords, sf.UpdatedReplacement)
-              → BuildPatterns 重新編譯 Regex (立即生效，無須重啟)
+    └─ OK → SettingsForm.WriteConfigFiles()（寫入 blacklist.txt + replacement.txt）
+              → _monitor.UpdateConfig(keywords, replacement)
+                    → Clone → Keywords / Replacement / _replacementForRegex
+                    → BuildPatterns（重新編譯 Regex，立即生效）
 ```
 
 ### 進入點
 
-PowerShell 端：
+`Program.Main()` — C# 原生進入點：
 
-1. STA 檢查（必要時重啟自身）
-2. `Add-Type` 載入五個 C# 類別（`ConfirmForm`、`WarningForm`、`SettingsForm`、`ClipboardMonitor`、`MonitorContext`）
-3. 讀取 `blacklist.txt`（關鍵字陣列）與 `replacement.txt`（遮罩字串）；任一缺失或為空則使用內建預設並輸出 Warning
-4. `Application.Run(new MonitorContext(keywords, replacement, $PSScriptRoot))` — 阻塞直到 `ExitThread()` 被呼叫
+1. `[STAThread]` attribute 確保 STA 執行環境（WinForms / Clipboard 必要條件）
+2. `LoadKeywords(baseDir)` — 讀取 `blacklist.txt`；缺失或為空則使用內建預設
+3. `LoadReplacement(baseDir)` — 讀取 `replacement.txt`；缺失或為空則使用 `***`
+4. `Application.Run(new MonitorContext(keywords, replacement, baseDir))` — 阻塞直到 `ExitThread()` 被呼叫
+5. `finally` 區塊確保 `context.Dispose()` 清理資源
+
+config 檔路徑以 `AppDomain.CurrentDomain.BaseDirectory` 解析，即 exe 所在目錄。
 
 ---
 
 ## 3. 防遞迴機制
 
-替換剪貼簿內容本身會觸發新的 `WM_CLIPBOARDUPDATE`，若不加以防護會造成無限遞迴。本腳本採用雙層保險：
+替換剪貼簿內容本身會觸發新的 `WM_CLIPBOARDUPDATE`，若不加以防護會造成無限遞迴。本程式採用雙層保險：
 
 ### 第一層：unhook / rehook
 
@@ -186,7 +212,7 @@ AddClipboardFormatListener(Handle)             // 恢復監聽
 `ShowDialog()` 雖然是 modal，但其內部仍會 pump 訊息迴圈。若使用者在對話框開啟期間再次複製包含敏感關鍵字的內容，`WM_CLIPBOARDUPDATE` 會被 post 並排隊，等到 `ShowDialog` 返回後處理。`_dialogOpen` 旗標確保這些排隊事件被丟棄，防止對話框堆疊。
 
 **為何兩層都需要**：
-- 第一層防止「腳本自身寫入剪貼簿」觸發遞迴
+- 第一層防止「程式自身寫入剪貼簿」觸發遞迴
 - 第二層防止「使用者快速連續複製」堆疊多個對話框
 
 ---
@@ -238,34 +264,34 @@ AddClipboardFormatListener(Handle)             // 恢復監聽
 ## 5. 生命週期
 
 ```
-npm run dev:win
+雙擊 ClipAssistant.exe（或桌面捷徑）
     │
     ▼
-powershell.exe (MTA，非 STA)
+Windows 以 WinExe subsystem 啟動程序（無 console 視窗）
     │
-    ├─ 偵測 ApartmentState != STA
-    └─ Start-Process powershell.exe -STA -_StaRelaunch → Wait → exit 0
-
-        ▼（新 STA 程序）
-    powershell.exe -STA
-        │
-        ├─ Add-Type: ConfirmForm, WarningForm, SettingsForm, ClipboardMonitor, MonitorContext
-        ├─ 讀取設定檔（blacklist.txt + replacement.txt）
-        │     ├─ 檔不存在 / 為空 / 全為註解 → 內建預設 + Write-Warning
-        │     └─ 正常 → $keywordsArray, $replacementToken
-        ├─ Application.EnableVisualStyles()
-        ├─ new MonitorContext($keywordsArray, $replacementToken, $PSScriptRoot)
-        │     ├─ 建立 NotifyIcon（tray 圖示可見，Tooltip = "Clip Assistant - Active"）
-        │     │     選單：[Pause Monitoring] ─── [Settings...] ─── [Exit]
-        │     └─ new ClipboardMonitor($keywordsArray, $replacementToken)
-        │           ├─ Clone keywords → Keywords / Replacement
-        │           ├─ _replacementForRegex = replacement.Replace("$", "$$")
-        │           ├─ BuildPatterns → _kvPattern + _presencePattern
-        │           ├─ CreateHandle()
-        │           ├─ AddClipboardFormatListener()
-        │           └─ RegisterHotKey(Ctrl+Alt+Q)
-        │
-        └─ Application.Run()  ←── 阻塞於此，處理訊息迴圈
+    ▼
+Program.Main()  ← [STAThread] 保證 STA 執行環境
+    │
+    ├─ LoadKeywords(baseDir)
+    │     ├─ 檔不存在 / 為空 / 全為註解 → 內建預設 + Console.Error.WriteLine
+    │     └─ 正常 → string[] keywords
+    ├─ LoadReplacement(baseDir)
+    │     ├─ 檔不存在 / 為空 → 內建預設 "***" + Console.Error.WriteLine
+    │     └─ 正常 → string replacement
+    ├─ Application.EnableVisualStyles()
+    ├─ new MonitorContext(keywords, replacement, baseDir)
+    │     ├─ CreateLockIcon() → 16x16 GDI+ 鎖頭圖示
+    │     ├─ 建立 NotifyIcon（tray 圖示可見，Tooltip = "Clip Assistant - Active"）
+    │     │     選單：[Pause Monitoring] ─── [Settings...] ─── [Exit]
+    │     └─ new ClipboardMonitor(keywords, replacement)
+    │           ├─ Clone keywords → Keywords / Replacement
+    │           ├─ _replacementForRegex = replacement.Replace("$", "$$")
+    │           ├─ BuildPatterns → _kvPattern + _presencePattern
+    │           ├─ CreateHandle()
+    │           ├─ AddClipboardFormatListener()
+    │           └─ RegisterHotKey(Ctrl+Alt+Q)
+    │
+    └─ Application.Run()  ←── 阻塞於此，處理訊息迴圈
 
     [退出路徑 A：Ctrl+Alt+Q]
         WM_HOTKEY → ExitRequested → ExitThread() → Application.Run() 返回
@@ -298,6 +324,7 @@ powershell.exe (MTA，非 STA)
               context.Dispose()
                 ├─ tray.Visible = false  （移除系統列圖示）
                 ├─ tray.Dispose()
+                ├─ trayIcon.Dispose()
                 └─ monitor.Dispose()
                       ├─ UnregisterHotKey()
                       ├─ RemoveClipboardFormatListener()
@@ -309,10 +336,10 @@ powershell.exe (MTA，非 STA)
 ## 6. 注意事項 / Caveats
 
 **STA 執行環境**
-腳本必須在 STA（Single-Threaded Apartment）模式執行，否則 WinForms 與 Clipboard API 無法正常運作。`npm run dev:win` 未加 `-STA`，因此腳本會偵測並以 `Start-Process` 重新啟動自身（帶 `-STA -_StaRelaunch` 旗標）。若重啟後仍非 STA（極罕見），腳本輸出錯誤並 `exit 1`，避免無窮迴圈。
+`Program.Main()` 標記 `[STAThread]`，WinForms 與 Clipboard API 所需的 STA 環境由 .NET runtime 在進入 `Main()` 前自動設定，無需任何額外處理。
 
 **AddClipboardFormatListener 平台需求**
-`AddClipboardFormatListener` 僅支援 Windows Vista（含）以上，XP 不支援。本腳本目標為 Windows 11，此條件已滿足。
+`AddClipboardFormatListener` 僅支援 Windows Vista（含）以上，XP 不支援。本程式目標為 Windows 11，此條件已滿足。
 
 **WM_CLIPBOARDUPDATE 是 posted 訊息**
 此訊息由 Windows 非同步 post 至視窗佇列（而非同步 send）。在單執行緒訊息迴圈中，unhook 後 Windows 不再 post 新事件，且 handler 執行期間佇列不被消化，因此 unhook → SetText → rehook 之間不存在殘留事件，第一層防遞迴機制是可靠的。
@@ -321,53 +348,37 @@ powershell.exe (MTA，非 STA)
 Modal dialog 雖然阻止使用者與主視窗互動，但 `ShowDialog()` 內部有自己的訊息迴圈，因此 `WM_CLIPBOARDUPDATE` 在對話框開啟期間仍可被 post 並排隊。`_dialogOpen` 旗標（第二層防遞迴）正是為此而設。
 
 **Clipboard.GetText() / SetText() 可能丟出 ExternalException**
-當其他程式鎖定剪貼簿時，這兩個呼叫會丟出 `System.Runtime.InteropServices.ExternalException`（HRESULT `0x800401D0`，`CLIPBRD_E_CANT_OPEN`）。腳本已在兩處以 try/catch 處理，失敗時靜默忽略該次事件。
+當其他程式鎖定剪貼簿時，這兩個呼叫會丟出 `System.Runtime.InteropServices.ExternalException`（HRESULT `0x800401D0`，`CLIPBRD_E_CANT_OPEN`）。程式已在兩處以 try/catch 處理，失敗時靜默忽略該次事件。
 
 **純文字替換的格式降級**
 若原始剪貼簿包含多種格式（如從 Word 複製的 RTF + 純文字），`SetText()` 替換後剪貼簿只剩 UnicodeText 格式，RTF 等格式版本會遺失。此為已知設計取捨。
 
 **Ctrl+Alt+Q 熱鍵衝突**
-若 `Ctrl+Alt+Q` 已被其他程式（例如某些 IME 或遊戲軟體）佔用，`RegisterHotKey` 會回傳 `false`（Win32 error 1409）。腳本會輸出 stderr 警告並繼續執行，此時可使用系統列圖示右鍵 → Exit 退出。HOTKEY_ID `0xB001` 為任意應用程式內部識別碼，無特別語意。
+若 `Ctrl+Alt+Q` 已被其他程式（例如某些 IME 或遊戲軟體）佔用，`RegisterHotKey` 會回傳 `false`（Win32 error 1409）。程式會輸出 stderr 警告並繼續執行，此時可使用系統列圖示右鍵 → Exit 退出。HOTKEY_ID `0xB001` 為任意應用程式內部識別碼，無特別語意。
 
 **NotifyIcon 殘影**
-若未在退出前將 `NotifyIcon.Visible` 設為 `false`，圖示會殘留在系統列直到滑鼠移過該區域觸發刷新。`MonitorContext.Dispose()` 與 PowerShell 的 `finally` 區塊均有設定 `Visible = false`。
+若未在退出前將 `NotifyIcon.Visible` 設為 `false`，圖示會殘留在系統列直到滑鼠移過該區域觸發刷新。`MonitorContext.Dispose()` 與 `Program.Main()` 的 `finally` 區塊均有設定 `Visible = false`。
 
-**Add-Type 在同一 Session 內不可重複載入**
-`Add-Type` 載入的型別在 PowerShell session 存活期間無法卸載或重新定義。若在同一 session 中重複執行腳本，會因型別已存在而跳過 `Add-Type`（腳本有 guard 防止硬錯誤），但這在 `npm run dev:win` 每次啟動新程序的場景中不成問題。開發時若需重載，需新開 PowerShell session。
+**csc.exe 編譯器版本**
+`npm run build:win` 使用 `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe`（.NET Framework 4.x），語言版本為 **C# 5**。任何 C# 6+ 語法（null-conditional `?.`、string interpolation `$"..."`、expression-bodied members）均無法編譯。`Program.cs` 已維持 C# 5 相容語法。
 
-**Add-Type 在 PowerShell 5.1 僅支援 C# 5 語法**
-Windows PowerShell 5.1 的 `Add-Type` 使用內建 CodeDOM 編譯器，語言版本為 **C# 5**。任何 C# 6+ 語法都會觸發 `SOURCE_CODE_ERROR`，包括：
-- null-conditional operator (`obj?.Member`、`obj?.Invoke()`)
-- string interpolation (`$"..."`)
-- expression-bodied members (`int X => ...`)
-- `nameof(...)`
-- auto-property initializers (`public int X { get; } = 1;`)
+**ClipAssistant.exe 不進版控**
+`ClipAssistant.exe` 是 build artifact，已加入 `.gitignore`。clone 後需執行 `npm run build:win` 產生 exe，再執行 `npm run setup:win` 建立桌面捷徑。
 
-對應的 C# 5 寫法：null-conditional 改為 `var h = E; if (h != null) h(...)` 或 `if (E != null) E(...)`；字串插值改為 `string.Format(...)`；event handler 改用 `new EventHandler(Method)` 或 `delegate(...)` 語法。本腳本已採用 C# 5 相容寫法，本次改版亦維持 C# 5 相容（無 `?.`、無字串插值、無 expression-bodied member）。
-
-**PowerShell 5.1 vs 7+ 的 WinForms 相容性**
-PowerShell 7+（.NET Core / .NET 5+）的 WinForms 支援需要目標框架對應。在 PowerShell 7 下，`System.Windows.Forms` 可能需要額外的 .NET Windows 相容套件。**建議以 Windows PowerShell 5.1 執行本腳本**（`npm run dev:win` 使用 `powershell.exe` 即為 5.1）。若確有需要在 pwsh 7+ 執行，可考慮安裝 `Microsoft.Windows.Compatibility` NuGet 套件，或改用 `-UseWindowsPowerShell` 模式。腳本的 STA relaunch 邏輯會自動沿用原始啟動的 shell 執行檔（`powershell.exe` 或 `pwsh.exe`）。
-
-**設定檔載入時機（v1 行為已變更）**
-啟動時讀取 `blacklist.txt` 與 `replacement.txt` 作為初始值。啟動後可透過 tray → Settings… 即時修改，無須重啟腳本。SettingsForm 的 Save 動作同步寫入磁碟並呼叫 `UpdateConfig`，讓新設定立即套用至 Regex。
+**設定檔載入時機**
+啟動時讀取 `blacklist.txt` 與 `replacement.txt` 作為初始值（路徑為 exe 所在目錄）。啟動後可透過 tray → Settings… 即時修改，無須重啟。SettingsForm 的 Save 動作同步寫入磁碟並呼叫 `UpdateConfig`，新設定立即套用至 Regex。
 
 **Replacement token 中的 `$` 字元**
-`Regex.Replace` 的 replacement string 中 `$` 有特殊意義（back-reference，如 `$1`、`$2`）。SettingsForm 輸入的 replacement token 在使用前會透過 `.Replace("$", "$$")` 逸脫，儲存為 `_replacementForRegex`。使用者輸入 `$1` 也不會造成 back-reference 問題；輸入 `***` 則轉換結果仍為 `***`（無 `$` 字元，不受影響）。
+`Regex.Replace` 的 replacement string 中 `$` 有特殊意義（back-reference，如 `$1`、`$2`）。replacement token 在使用前會透過 `.Replace("$", "$$")` 逸脫，儲存為 `_replacementForRegex`。使用者輸入 `$1` 也不會造成 back-reference 問題。
 
 **Settings 儲存格式**
-SettingsForm 的 Save 動作以 UTF-8 without BOM 寫入 `blacklist.txt`（含固定 comment header）與 `replacement.txt`，並同步更新記憶體中的 regex，無須重啟腳本。
-
-**VBScript 啟動器的 Windows 版本相容性**
-`launch.vbs` 使用 `WScript.Shell.Run`，在 Windows 10/11 已知正常。Windows 11 23H2 開始 VBScript 被列為「deprecated」，但 VBScript 引擎在 Windows 11 24H2 仍預設可用，預計完全移除時程為 Windows 11 之後的版本。若未來失效，可改用 PowerShell 的 `-WindowStyle Hidden` 捷徑方式。
-
-**設定檔意外時的 fallback**
-任一設定檔不存在、內容為空，或所有行均為空白/註解時，腳本改用內建預設（關鍵字：`host, password, pw, account, authorization`；遮罩字串：`***`）並輸出 `Write-Warning` 至 stderr 提示檔案路徑，腳本繼續正常執行。
+SettingsForm 的 Save 動作以 UTF-8 without BOM 寫入 `blacklist.txt`（含固定 comment header）與 `replacement.txt`，並同步更新記憶體中的 regex，無須重啟程式。
 
 **Presence pattern 為 k-v 的 fallback**
-`_presencePattern` 僅在 `_kvPattern` 完全無命中時觸發。若文字同時含有 k-v 命中的欄位與非 k-v 結構的關鍵字（例如一段 log 同時有 `password=secret` 和 `PW` 欄標題），程式只顯示 Replace dialog，不另顯示 WarningForm。
+`_presencePattern` 僅在 `_kvPattern` 完全無命中時觸發。若文字同時含有 k-v 命中的欄位與非 k-v 結構的關鍵字，程式只顯示 Replace dialog，不另顯示 WarningForm。
 
 **關鍵字 escape**
-所有關鍵字在組合進 regex pattern 前均以 `Regex.Escape` 處理。使用者在 `blacklist.txt` 中寫入 `auth.token`、`api[key]` 等含 regex 特殊字元的字串，不會破壞整體 pattern，`.` 等字元會被轉義為字面量。
+所有關鍵字在組合進 regex pattern 前均以 `Regex.Escape` 處理。使用者在 `blacklist.txt` 中寫入 `auth.token`、`api[key]` 等含 regex 特殊字元的字串，不會破壞整體 pattern。
 
 **value 邊界限制**
 Group 3 的值終止於逗號、whitespace、分號、`&`。因此：
@@ -384,7 +395,7 @@ Group 3 的值終止於逗號、whitespace、分號、`&`。因此：
 
 **啟動與退出**
 
-- 執行 `npm run dev:win`，確認系統列出現圖示，Tooltip 顯示「Clip Assistant - Active」
+- 雙擊 `ClipAssistant.exe` 或桌面捷徑，確認系統列出現藍底鎖頭圖示，Tooltip 顯示「Clip Assistant - Active」
 - 按 `Ctrl+Alt+Q` 或右鍵系統列 → Exit，確認程式結束、圖示消失
 
 **Settings 測試**
@@ -503,24 +514,42 @@ Last error: FATAL: password authentication failed for user "service_account_prod
 
 ---
 
-## 8. 安裝與啟動
+## 8. 安裝與使用
 
-### 啟動方式
+### 首次安裝
 
-**開發期間**（有 Node.js）：
+```powershell
+# 1. clone repo
+git clone <repo-url>
+cd clip-assistant
+
+# 2. 編譯 exe
+npm run build:win
+
+# 3. 建立桌面捷徑
+npm run setup:win
 ```
-npm run dev:win
-```
 
-**日常使用（隱藏 console 視窗）**：
+### 日常啟動
 
-直接執行 `windows/launch.vbs`，或建立桌面捷徑：
-1. 在 `windows/launch.vbs` 上按右鍵 → 建立捷徑
-2. 將捷徑移到桌面
-3. （選用）重新命名捷徑為 "Clip Assistant"
+雙擊桌面上的 **Clip Assistant** 捷徑，程式在背景執行，系統列出現藍底鎖頭圖示。
 
 ### 更新設定
 
-啟動後，右鍵托盤圖示 → **Settings…** 即可新增 / 移除監控關鍵字或修改替換文字。
+啟動後，右鍵托盤圖示 → **Settings…** 即可新增 / 移除監控關鍵字或修改替換文字。設定儲存後立即生效，無須重啟。
 
-設定儲存後立即生效，無須重啟。
+### 重新編譯
+
+修改 `windows/src/Program.cs` 後執行：
+
+```
+npm run build:win
+```
+
+`ClipAssistant.exe` 為 build artifact，不進版控（已加入 `.gitignore`）。
+
+### 執行測試
+
+```
+npm run test:win
+```

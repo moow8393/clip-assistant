@@ -4,4 +4,3 @@ host
 password
 pw
 account
-authorization

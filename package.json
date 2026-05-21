@@ -4,11 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build:win": "powershell -Command \"$csc='C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe'; & $csc /target:winexe /optimize+ /out:./windows/ClipAssistant.exe /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Runtime.InteropServices.dll ./windows/src/Program.cs\"",
     "setup:win": "powershell -ExecutionPolicy Bypass -File ./windows/create-shortcut.ps1",
-    "test:win":"powershell -ExecutionPolicy Bypass -Command \"Invoke-Pester ./tests/windows/monitor.Tests.ps1 -Output Detailed\"",
-    "dev:win": "powershell -ExecutionPolicy Bypass -File ./windows/monitor.ps1",
-    "lint:win":   "powershell -Command \"Invoke-ScriptAnalyzer -Path ./windows/monitor.ps1\"",
-    "format:win": "powershell -Command \"$f='./windows/monitor.ps1'; Set-Content $f (Invoke-Formatter -ScriptDefinition (Get-Content $f -Raw)) -Encoding UTF8\"",
+    "test:win": "powershell -ExecutionPolicy Bypass -Command \"Invoke-Pester ./tests/windows/ClipAssistant.Tests.ps1 -Output Detailed\"",
     "info:ios": "echo 'Please open ./ios/ClipAssistant.xcodeproj in Xcode (Mac Required)'"
   },
   "keywords": [],

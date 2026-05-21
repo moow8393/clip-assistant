@@ -1,6 +1,6 @@
 #Requires -Version 5.1
-# monitor.Tests.ps1
-# Pester 5 tests for monitor.ps1.
+# ClipAssistant.Tests.ps1
+# Pester 5 tests for windows/src/Program.cs.
 # Covers: (1) config-file loading logic, (2) regex pattern behaviour,
 # (3) SettingsForm disk-write and dedup behaviour (STA runspace).
 #
@@ -10,22 +10,16 @@
 BeforeAll {
 
     # -------------------------------------------------------------------------
-    # Returns the raw C# source embedded in monitor.ps1 (the Add-Type here-string).
+    # Returns the C# source from Program.cs for use with Add-Type in tests.
     # -------------------------------------------------------------------------
     function Get-MonitorCSharpSource {
-        $monitorScript = Join-Path $PSScriptRoot '..\..\windows\monitor.ps1'
-        $content = Get-Content -Path $monitorScript -Raw
-        # Extract the here-string body between @' ... '@
-        if ($content -match "(?s)Add-Type.*?@'(.+?)'@") {
-            return $Matches[1]
-        }
-        throw "Could not extract C# source from monitor.ps1"
+        return Get-Content -Path (Join-Path $PSScriptRoot '..\..\windows\src\Program.cs') -Raw
     }
 
     # -------------------------------------------------------------------------
-    # Reproduces the config-loading block from monitor.ps1 as a testable function.
-    # Accepts explicit file paths so tests can use $TestDrive without dot-sourcing
-    # the full script (which would attempt to start the WinForms message pump).
+    # Spec-level test of the config-loading logic defined in Program.LoadKeywords
+    # and Program.LoadReplacement. Mirrors their behaviour in PowerShell so tests
+    # can run without invoking the full WinForms application.
     # Returns a hashtable: KeywordsArray, ReplacementToken, Warnings.
     # -------------------------------------------------------------------------
     function Invoke-ConfigLoad {
@@ -170,7 +164,7 @@ BeforeAll {
         }
     }
 
-    # Shared keyword list for all regex tests (matches monitor.ps1 built-in defaults)
+    # Shared keyword list for all regex tests (matches Program.DefaultKeywords)
     $script:TestKeywords = @('host', 'password', 'pw', 'account', 'authorization')
 }
 

@@ -1,0 +1,8 @@
+# Build artifacts
+windows/ClipAssistant.exe
+windows/src/obj/
+windows/src/bin/
+windows/*.pdb
+
+# Node
+node_modules/
