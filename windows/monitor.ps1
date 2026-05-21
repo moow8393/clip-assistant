@@ -57,6 +57,8 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 namespace ClipAssistant
@@ -624,6 +626,7 @@ namespace ClipAssistant
     {
         private ClipboardMonitor  _monitor;
         private NotifyIcon        _tray;
+        private Icon              _trayIcon;
         private ToolStripMenuItem _pauseMenuItem;
         private string            _configDir;
 
@@ -653,7 +656,8 @@ namespace ClipAssistant
 
             // Configure tray icon
             _tray                   = new NotifyIcon();
-            _tray.Icon              = System.Drawing.SystemIcons.Application;
+            _trayIcon               = CreateLockIcon();
+            _tray.Icon              = _trayIcon;
             _tray.Text              = "Clip Assistant - Active";
             _tray.ContextMenuStrip  = menu;
             _tray.Visible           = true;
@@ -691,6 +695,61 @@ namespace ClipAssistant
             }
         }
 
+        // Needed to release the HICON returned by Bitmap.GetHicon().
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool DestroyIcon(IntPtr hIcon);
+
+        // Draws a 16x16 padlock icon at runtime: blue background, white shackle + body, blue keyhole.
+        // Avoids shipping an external .ico file.
+        private static Icon CreateLockIcon()
+        {
+            Color blue = Color.FromArgb(255, 41, 128, 185);
+
+            using (Bitmap bmp = new Bitmap(16, 16))
+            {
+                using (Graphics g = Graphics.FromImage(bmp))
+                {
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    g.Clear(Color.Transparent);
+
+                    // Blue background
+                    using (SolidBrush bg = new SolidBrush(blue))
+                        g.FillRectangle(bg, 0, 0, 16, 16);
+
+                    // Lock body: white filled rectangle
+                    using (SolidBrush body = new SolidBrush(Color.White))
+                        g.FillRectangle(body, 3, 9, 10, 6);
+
+                    // Shackle: white U-shape (two vertical legs + top arc)
+                    using (GraphicsPath path = new GraphicsPath())
+                    {
+                        path.AddLine(5, 9, 5, 6);
+                        path.AddArc(5, 2, 5, 8, 180, 180);
+                        path.AddLine(10, 6, 10, 9);
+
+                        using (Pen p = new Pen(Color.White, 2.0f))
+                        {
+                            p.LineJoin = LineJoin.Round;
+                            g.DrawPath(p, path);
+                        }
+                    }
+
+                    // Keyhole: blue ellipse + small rectangle below
+                    using (SolidBrush hole = new SolidBrush(blue))
+                    {
+                        g.FillEllipse(hole, 6, 10, 4, 3);
+                        g.FillRectangle(hole, 7, 12, 2, 2);
+                    }
+                }
+
+                IntPtr hIcon = bmp.GetHicon();
+                Icon icon = (Icon)Icon.FromHandle(hIcon).Clone();
+                DestroyIcon(hIcon);
+                return icon;
+            }
+        }
+
         // Override Dispose to guarantee ordered cleanup of both managed objects.
         protected override void Dispose(bool disposing)
         {
@@ -702,6 +761,12 @@ namespace ClipAssistant
                     _tray.Visible = false;
                     _tray.Dispose();
                     _tray = null;
+                }
+
+                if (_trayIcon != null)
+                {
+                    _trayIcon.Dispose();
+                    _trayIcon = null;
                 }
 
                 if (_monitor != null)
