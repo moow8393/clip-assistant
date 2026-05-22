@@ -6,3 +6,11 @@ windows/*.pdb
 
 # Node
 node_modules/
+
+# iOS / Xcode
+ios/*/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+ios/build/
+ios/DerivedData/
+*.xcresult
+.DS_Store

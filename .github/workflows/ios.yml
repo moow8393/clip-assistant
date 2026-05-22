@@ -1,0 +1,52 @@
+name: iOS CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+
+jobs:
+  test:
+    name: Build & Test (iOS Simulator)
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: |
+          xcodebuild -version
+          echo "Available simulators:"
+          xcrun simctl list devices available | grep "iPhone 1[6-9]\|iPhone [2-9][0-9]" | head -5
+
+      - name: Install xcpretty
+        run: gem install xcpretty --no-document --quiet
+
+      - name: Build & Run Tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project ios/ClipAssistant.xcodeproj \
+            -scheme ClipAssistant \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+          | xcpretty --test --color
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestResults-${{ github.run_number }}
+          path: TestResults.xcresult
+          retention-days: 14

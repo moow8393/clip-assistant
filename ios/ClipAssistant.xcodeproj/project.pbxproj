@@ -1,0 +1,601 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA000001000000000000001 /* ClipAssistantApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000001 /* ClipAssistantApp.swift */; };
+		AA000001000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000002 /* ContentView.swift */; };
+		AA000001000000000000003 /* ClipboardInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000003 /* ClipboardInspectorView.swift */; };
+		AA000001000000000000004 /* ClipboardInspectorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000004 /* ClipboardInspectorViewModel.swift */; };
+		AA000001000000000000005 /* ConfirmRedactView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000005 /* ConfirmRedactView.swift */; };
+		AA000001000000000000006 /* PresenceWarningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000006 /* PresenceWarningView.swift */; };
+		AA000001000000000000007 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000007 /* SettingsView.swift */; };
+		AA000001000000000000008 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000008 /* SettingsViewModel.swift */; };
+		AA000001000000000000009 /* KeywordListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000009 /* KeywordListView.swift */; };
+		AA000001000000000000010 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000010 /* HistoryView.swift */; };
+		AA000001000000000000011 /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000011 /* HistoryViewModel.swift */; };
+		AA000001000000000000012 /* ClipboardDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000012 /* ClipboardDetector.swift */; };
+		AA000001000000000000013 /* PatternBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000013 /* PatternBuilder.swift */; };
+		AA000001000000000000014 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000014 /* SettingsStore.swift */; };
+		AA000001000000000000015 /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000015 /* HistoryStore.swift */; };
+		AA000001000000000000016 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000016 /* AppSettings.swift */; };
+		AA000001000000000000017 /* DetectionResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000017 /* DetectionResult.swift */; };
+		AA000001000000000000018 /* ClipboardEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000018 /* ClipboardEntry.swift */; };
+		AA000002000000000000001 /* DetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100002000000000000001 /* DetectorTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AA100001000000000000001 /* ClipAssistantApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipAssistantApp.swift; sourceTree = "<group>"; };
+		AA100001000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		AA100001000000000000003 /* ClipboardInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardInspectorView.swift; sourceTree = "<group>"; };
+		AA100001000000000000004 /* ClipboardInspectorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardInspectorViewModel.swift; sourceTree = "<group>"; };
+		AA100001000000000000005 /* ConfirmRedactView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmRedactView.swift; sourceTree = "<group>"; };
+		AA100001000000000000006 /* PresenceWarningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresenceWarningView.swift; sourceTree = "<group>"; };
+		AA100001000000000000007 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		AA100001000000000000008 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
+		AA100001000000000000009 /* KeywordListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeywordListView.swift; sourceTree = "<group>"; };
+		AA100001000000000000010 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		AA100001000000000000011 /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
+		AA100001000000000000012 /* ClipboardDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardDetector.swift; sourceTree = "<group>"; };
+		AA100001000000000000013 /* PatternBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternBuilder.swift; sourceTree = "<group>"; };
+		AA100001000000000000014 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		AA100001000000000000015 /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
+		AA100001000000000000016 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		AA100001000000000000017 /* DetectionResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionResult.swift; sourceTree = "<group>"; };
+		AA100001000000000000018 /* ClipboardEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardEntry.swift; sourceTree = "<group>"; };
+		AA100001000000000000019 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA100002000000000000001 /* DetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectorTests.swift; sourceTree = "<group>"; };
+		AATARGET00000000000APP1 /* ClipAssistant.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClipAssistant.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AATARGET00000000000TST1 /* ClipAssistantTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClipAssistantTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AAPHASE000000000000APP2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAPHASE000000000000TST2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AAGROUP0000000000000000 /* ClipAssistant root group */ = {
+			isa = PBXGroup;
+			children = (
+				AAGROUP0000000000000APP /* ClipAssistant */,
+				AAGROUP0000000000000TST /* ClipAssistantTests */,
+				AAGROUP0000000000000PRD /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000PRD /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AATARGET00000000000APP1 /* ClipAssistant.app */,
+				AATARGET00000000000TST1 /* ClipAssistantTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000APP /* ClipAssistant */ = {
+			isa = PBXGroup;
+			children = (
+				AAGROUP0000000000000A01 /* App */,
+				AAGROUP0000000000000A02 /* Features */,
+				AAGROUP0000000000000A03 /* Core */,
+				AAGROUP0000000000000A04 /* Resources */,
+			);
+			path = ClipAssistant;
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000A01 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001000000000000001 /* ClipAssistantApp.swift */,
+				AA100001000000000000002 /* ContentView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000A02 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				AAGROUP0000000000000F01 /* Inspector */,
+				AAGROUP0000000000000F02 /* Settings */,
+				AAGROUP0000000000000F03 /* History */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000F01 /* Inspector */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001000000000000003 /* ClipboardInspectorView.swift */,
+				AA100001000000000000004 /* ClipboardInspectorViewModel.swift */,
+				AA100001000000000000005 /* ConfirmRedactView.swift */,
+				AA100001000000000000006 /* PresenceWarningView.swift */,
+			);
+			path = Inspector;
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000F02 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001000000000000007 /* SettingsView.swift */,
+				AA100001000000000000008 /* SettingsViewModel.swift */,
+				AA100001000000000000009 /* KeywordListView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000F03 /* History */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001000000000000010 /* HistoryView.swift */,
+				AA100001000000000000011 /* HistoryViewModel.swift */,
+			);
+			path = History;
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000A03 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				AAGROUP0000000000000C01 /* Detection */,
+				AAGROUP0000000000000C02 /* Storage */,
+				AAGROUP0000000000000C03 /* Models */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000C01 /* Detection */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001000000000000012 /* ClipboardDetector.swift */,
+				AA100001000000000000013 /* PatternBuilder.swift */,
+			);
+			path = Detection;
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000C02 /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001000000000000014 /* SettingsStore.swift */,
+				AA100001000000000000015 /* HistoryStore.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000C03 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001000000000000016 /* AppSettings.swift */,
+				AA100001000000000000017 /* DetectionResult.swift */,
+				AA100001000000000000018 /* ClipboardEntry.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000A04 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001000000000000019 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		AAGROUP0000000000000TST /* ClipAssistantTests */ = {
+			isa = PBXGroup;
+			children = (
+				AA100002000000000000001 /* DetectorTests.swift */,
+			);
+			path = ClipAssistantTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AATARGET00000000000APP0 /* ClipAssistant */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AACONFIG0000000000000A00 /* Build configuration list for PBXNativeTarget "ClipAssistant" */;
+			buildPhases = (
+				AAPHASE000000000000APP1 /* Sources */,
+				AAPHASE000000000000APP2 /* Frameworks */,
+				AAPHASE000000000000APP3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ClipAssistant;
+			productName = ClipAssistant;
+			productReference = AATARGET00000000000APP1 /* ClipAssistant.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AATARGET00000000000TST0 /* ClipAssistantTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AACONFIG0000000000000T00 /* Build configuration list for PBXNativeTarget "ClipAssistantTests" */;
+			buildPhases = (
+				AAPHASE000000000000TST1 /* Sources */,
+				AAPHASE000000000000TST2 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AADEP0000000000000TST01 /* PBXTargetDependency */,
+			);
+			name = ClipAssistantTests;
+			productName = ClipAssistantTests;
+			productReference = AATARGET00000000000TST1 /* ClipAssistantTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AAPROJECT000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					AATARGET00000000000APP0 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					AATARGET00000000000TST0 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = AATARGET00000000000APP0;
+					};
+				};
+			};
+			buildConfigurationList = AACONFIG0000000000000P00 /* Build configuration list for PBXProject "ClipAssistant" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AAGROUP0000000000000000;
+			productRefGroup = AAGROUP0000000000000PRD /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AATARGET00000000000APP0 /* ClipAssistant */,
+				AATARGET00000000000TST0 /* ClipAssistantTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AAPHASE000000000000APP3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AAPHASE000000000000APP1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000001000000000000001 /* ClipAssistantApp.swift in Sources */,
+				AA000001000000000000002 /* ContentView.swift in Sources */,
+				AA000001000000000000003 /* ClipboardInspectorView.swift in Sources */,
+				AA000001000000000000004 /* ClipboardInspectorViewModel.swift in Sources */,
+				AA000001000000000000005 /* ConfirmRedactView.swift in Sources */,
+				AA000001000000000000006 /* PresenceWarningView.swift in Sources */,
+				AA000001000000000000007 /* SettingsView.swift in Sources */,
+				AA000001000000000000008 /* SettingsViewModel.swift in Sources */,
+				AA000001000000000000009 /* KeywordListView.swift in Sources */,
+				AA000001000000000000010 /* HistoryView.swift in Sources */,
+				AA000001000000000000011 /* HistoryViewModel.swift in Sources */,
+				AA000001000000000000012 /* ClipboardDetector.swift in Sources */,
+				AA000001000000000000013 /* PatternBuilder.swift in Sources */,
+				AA000001000000000000014 /* SettingsStore.swift in Sources */,
+				AA000001000000000000015 /* HistoryStore.swift in Sources */,
+				AA000001000000000000016 /* AppSettings.swift in Sources */,
+				AA000001000000000000017 /* DetectionResult.swift in Sources */,
+				AA000001000000000000018 /* ClipboardEntry.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAPHASE000000000000TST1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000002000000000000001 /* DetectorTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AADEP0000000000000TST01 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AATARGET00000000000APP0 /* ClipAssistant */;
+			targetProxy = AADEP0000000000000TST02 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXContainerItemProxy section */
+		AADEP0000000000000TST02 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAPROJECT000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AATARGET00000000000APP0;
+			remoteInfo = ClipAssistant;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin XCBuildConfiguration section */
+		AACONFIG0000000000000P01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		AACONFIG0000000000000P02 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		AACONFIG0000000000000A01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ClipAssistant/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.clipassistant.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		AACONFIG0000000000000A02 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ClipAssistant/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.clipassistant.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		AACONFIG0000000000000T01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.clipassistant.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClipAssistant.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClipAssistant";
+			};
+			name = Debug;
+		};
+		AACONFIG0000000000000T02 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.clipassistant.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClipAssistant.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClipAssistant";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AACONFIG0000000000000P00 /* Build configuration list for PBXProject "ClipAssistant" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AACONFIG0000000000000P01 /* Debug */,
+				AACONFIG0000000000000P02 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AACONFIG0000000000000A00 /* Build configuration list for PBXNativeTarget "ClipAssistant" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AACONFIG0000000000000A01 /* Debug */,
+				AACONFIG0000000000000A02 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AACONFIG0000000000000T00 /* Build configuration list for PBXNativeTarget "ClipAssistantTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AACONFIG0000000000000T01 /* Debug */,
+				AACONFIG0000000000000T02 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = AAPROJECT000000000000001 /* Project object */;
+}
