@@ -1,17 +1,12 @@
 import Foundation
 
-/// Thread-safe detector; all state is immutable after init.
-/// Conforms to Sendable because NSRegularExpression is thread-safe for concurrent reads
-/// once compiled, and the replacement string is an immutable String.
-public final class ClipboardDetector: Sendable {
+// NSRegularExpression is thread-safe for concurrent reads after compilation,
+// but lacks a Swift Sendable annotation — @unchecked is safe here.
+public final class ClipboardDetector: @unchecked Sendable {
 
     private let kvRegex: NSRegularExpression
     private let presenceRegex: NSRegularExpression
-
-    // "$" is escaped to "$$" so NSRegularExpression.stringByReplacingMatches does not
-    // interpret "$1"-style back-references in the user-supplied replacement token.
-    // This mirrors Windows: _replacementForRegex = replacement.Replace("$", "$$")
-    private let escapedReplacement: String
+    private let replacement: String
 
     public init(keywords: [String], replacement: String) throws {
         guard !keywords.isEmpty else {
@@ -19,7 +14,7 @@ public final class ClipboardDetector: Sendable {
         }
         self.kvRegex = try PatternBuilder.buildKVPattern(keywords: keywords)
         self.presenceRegex = try PatternBuilder.buildPresencePattern(keywords: keywords)
-        self.escapedReplacement = replacement.replacingOccurrences(of: "$", with: "$$")
+        self.replacement = replacement
     }
 
     public func analyze(text: String) -> DetectionResult {
@@ -29,12 +24,7 @@ public final class ClipboardDetector: Sendable {
         let kvMatches = kvRegex.matches(in: text, range: fullRange)
         if !kvMatches.isEmpty {
             let hitKeywords = extractUniqueKeywords(from: kvMatches, in: text, groupIndex: 1)
-            // $1 = keyword (group 1), $2 = separator (group 2), escapedReplacement = masked value
-            let redacted = kvRegex.stringByReplacingMatches(
-                in: text,
-                range: fullRange,
-                withTemplate: "$1$2\(escapedReplacement)"
-            )
+            let redacted = applyKVReplacement(matches: kvMatches, in: text)
             return .kvMatch(keywords: hitKeywords, redactedText: redacted)
         }
 
@@ -46,6 +36,29 @@ public final class ClipboardDetector: Sendable {
         }
 
         return .noMatch
+    }
+
+    // Rebuilds the string by iterating matches in order, preserving group 1 (keyword)
+    // and group 2 (separator), substituting group 3 (value) with the raw replacement token.
+    // Using manual iteration avoids NSRegularExpression template $ back-reference ambiguity.
+    private func applyKVReplacement(matches: [NSTextCheckingResult], in text: String) -> String {
+        var result = ""
+        var lastEnd = text.startIndex
+
+        for match in matches {
+            guard let fullRange = Range(match.range, in: text),
+                  let group1Range = Range(match.range(at: 1), in: text),
+                  let group2Range = Range(match.range(at: 2), in: text) else { continue }
+
+            result += text[lastEnd..<fullRange.lowerBound]
+            result += text[group1Range]
+            result += text[group2Range]
+            result += replacement
+            lastEnd = fullRange.upperBound
+        }
+
+        result += text[lastEnd...]
+        return result
     }
 
     private func extractUniqueKeywords(

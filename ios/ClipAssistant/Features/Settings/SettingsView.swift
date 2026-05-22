@@ -13,14 +13,14 @@ struct SettingsView: View {
                 Section("替換 Token") {
                     TextField("預設：***", text: $viewModel.replacementToken)
                         .autocorrectionDisabled()
-                        .onChange(of: viewModel.replacementToken) { _, _ in
+                        .onChange(of: viewModel.replacementToken) { _ in
                             viewModel.hasUnsavedChanges = true
                         }
                 }
 
                 Section("監控狀態") {
                     Toggle("暫停監控", isOn: $viewModel.isPaused)
-                        .onChange(of: viewModel.isPaused) { _, _ in
+                        .onChange(of: viewModel.isPaused) { _ in
                             viewModel.hasUnsavedChanges = true
                         }
                 }

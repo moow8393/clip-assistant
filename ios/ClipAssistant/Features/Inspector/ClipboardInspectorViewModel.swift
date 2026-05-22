@@ -20,13 +20,17 @@ final class ClipboardInspectorViewModel: ObservableObject {
         // Subscribe to changedNotification as a supplemental trigger.
         // This fires when the clipboard changes while the app is already in the foreground
         // (i.e., the user copies something without switching apps). It does NOT fire in background.
+        // queue: nil — the Task below dispatches to @MainActor anyway.
+        // isAppWriting is @MainActor-isolated, so it must be accessed inside the Task,
+        // not in the outer @Sendable closure (Swift 6 strict concurrency requirement).
         NotificationCenter.default.addObserver(
             forName: UIPasteboard.changedNotification,
             object: nil,
-            queue: .main
+            queue: nil
         ) { [weak self] _ in
-            guard let self, !self.isAppWriting else { return }
-            Task { @MainActor in
+            guard let self else { return }
+            Task { @MainActor [weak self] in
+                guard let self, !self.isAppWriting else { return }
                 await self.analyzeCurrentClipboard()
             }
         }

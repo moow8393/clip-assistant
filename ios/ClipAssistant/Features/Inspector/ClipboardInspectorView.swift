@@ -11,7 +11,7 @@ struct ClipboardInspectorView: View {
                 overlayContent
             }
             .navigationTitle("剪貼簿檢查")
-            .onChange(of: scenePhase) { _, newPhase in
+            .onChange(of: scenePhase) { newPhase in
                 if newPhase == .active {
                     viewModel.onBecomeActive()
                 }

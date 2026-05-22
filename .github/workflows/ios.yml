@@ -12,10 +12,15 @@ on:
       - 'ios/**'
       - '.github/workflows/ios.yml'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
     name: Build & Test (iOS Simulator)
     runs-on: macos-15
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -24,11 +29,7 @@ jobs:
       - name: Show Xcode version
         run: |
           xcodebuild -version
-          echo "Available simulators:"
           xcrun simctl list devices available | grep "iPhone 1[6-9]\|iPhone [2-9][0-9]" | head -5
-
-      - name: Install xcpretty
-        run: gem install xcpretty --no-document --quiet
 
       - name: Build & Run Tests
         run: |
@@ -41,12 +42,28 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-          | xcpretty --test --color
+            2>&1 | tee build.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo ""
+            echo "=== Build/Test Errors ==="
+            grep -E "error:" build.log | grep -v "^note:" | head -40 || true
+          fi
+          exit $EXIT_CODE
 
-      - name: Upload test results
+      - name: Show test summary
         if: always()
+        run: |
+          echo "=== Test Results ==="
+          grep -E "Test Suite '|Test Case '-\[|Executed [0-9]+ test" build.log \
+            | grep -v "started at" \
+            | tail -30 \
+            || echo "(no test output — build failed before tests ran)"
+
+      - name: Upload build log
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: TestResults-${{ github.run_number }}
-          path: TestResults.xcresult
-          retention-days: 14
+          name: build-log-${{ github.run_number }}
+          path: build.log
+          retention-days: 7

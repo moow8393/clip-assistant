@@ -23,25 +23,29 @@ struct HistoryView: View {
                     }
                     .padding(.vertical, 4)
                 }
-            }
-            .navigationTitle("遮罩記錄")
-            .toolbar {
                 if !viewModel.entries.isEmpty {
-                    ToolbarItem(placement: .destructiveAction) {
-                        Button("清除") {
-                            Task { await viewModel.clear() }
-                        }
-                        .foregroundStyle(.red)
+                    Button(role: .destructive, action: viewModel.clearEntries) {
+                        Label("清除所有記錄", systemImage: "trash")
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
             }
+            .navigationTitle("遮罩記錄")
             .overlay {
                 if viewModel.entries.isEmpty {
-                    ContentUnavailableView(
-                        "尚無記錄",
-                        systemImage: "clock.badge.checkmark",
-                        description: Text("成功遮罩的剪貼簿內容會顯示在此")
-                    )
+                    VStack(spacing: 12) {
+                        Image(systemName: "clock.badge.checkmark")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.secondary)
+                        Text("尚無記錄")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                        Text("成功遮罩的剪貼簿內容會顯示在此")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
                 }
             }
         }

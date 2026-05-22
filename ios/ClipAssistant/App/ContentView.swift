@@ -17,7 +17,7 @@ struct ContentView: View {
         }
         // ScenePhase observation at the App level ensures we catch every foreground transition.
         // ClipboardInspectorView also observes scenePhase independently as a safety net.
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
                 inspectorVM.onBecomeActive()
             }

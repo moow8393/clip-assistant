@@ -9,8 +9,10 @@ final class HistoryViewModel: ObservableObject {
         entries = await store.loadAll()
     }
 
-    func clear() async {
-        await store.clear()
+    // Synchronous wrapper so toolbar button actions don't need Task { await } inline,
+    // which causes Swift 6 actor isolation ambiguity inside @ToolbarContentBuilder.
+    func clearEntries() {
         entries = []
+        Task { await store.clear() }
     }
 }
