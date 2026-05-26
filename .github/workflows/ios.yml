@@ -67,3 +67,48 @@ jobs:
           name: build-log-${{ github.run_number }}
           path: build.log
           retention-days: 7
+
+  build-ipa:
+    name: Build IPA (unsigned, for Sideloadly)
+    runs-on: macos-15
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Archive
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project ios/ClipAssistant.xcodeproj \
+            -scheme ClipAssistant \
+            -destination 'generic/platform=iOS' \
+            -archivePath ClipAssistant.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee archive.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "=== Archive Errors ==="
+            grep -E "error:" archive.log | grep -v "^note:" | head -40 || true
+          fi
+          exit $EXIT_CODE
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -r ClipAssistant.xcarchive/Products/Applications/ClipAssistant.app Payload/
+          zip -r ClipAssistant.ipa Payload/
+          echo "IPA size: $(du -sh ClipAssistant.ipa | cut -f1)"
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClipAssistant-${{ github.run_number }}
+          path: ClipAssistant.ipa
+          retention-days: 30
