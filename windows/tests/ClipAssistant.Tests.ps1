@@ -13,7 +13,7 @@ BeforeAll {
     # Returns the C# source from Program.cs for use with Add-Type in tests.
     # -------------------------------------------------------------------------
     function Get-MonitorCSharpSource {
-        return Get-Content -Path (Join-Path $PSScriptRoot '..\..\windows\src\Program.cs') -Raw
+        return Get-Content -Path (Join-Path $PSScriptRoot '..\src\Program.cs') -Raw
     }
 
     # -------------------------------------------------------------------------

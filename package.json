@@ -6,7 +6,7 @@
   "scripts": {
     "build:win": "powershell -Command \"$csc='C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe'; & $csc /target:winexe /optimize+ /out:./windows/ClipAssistant.exe /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Runtime.InteropServices.dll ./windows/src/Program.cs\"",
     "setup:win": "powershell -ExecutionPolicy Bypass -File ./windows/create-shortcut.ps1",
-    "test:win": "powershell -ExecutionPolicy Bypass -Command \"Invoke-Pester ./tests/windows/ClipAssistant.Tests.ps1 -Output Detailed\"",
+    "test:win": "powershell -ExecutionPolicy Bypass -Command \"Invoke-Pester ./windows/tests/ClipAssistant.Tests.ps1 -Output Detailed\"",
     "info:ios": "echo 'Please open ./ios/ClipAssistant.xcodeproj in Xcode (Mac Required)'"
   },
   "keywords": [],

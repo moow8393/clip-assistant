@@ -2,10 +2,7 @@ name: iOS CI
 
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'ios/**'
-      - '.github/workflows/ios.yml'
+    tags: [ 'ios-v*' ]
   pull_request:
     branches: [ main ]
     paths:
@@ -72,9 +69,9 @@ jobs:
     name: Build IPA (unsigned, for Sideloadly)
     runs-on: macos-15
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: startsWith(github.ref, 'refs/tags/ios-v')
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout
@@ -106,9 +103,15 @@ jobs:
           zip -r ClipAssistant.ipa Payload/
           echo "IPA size: $(du -sh ClipAssistant.ipa | cut -f1)"
 
-      - name: Upload IPA
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ClipAssistant-${{ github.run_number }}
           path: ClipAssistant.ipa
           retention-days: 30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "iOS ${{ github.ref_name }}"
+          files: ClipAssistant.ipa

@@ -211,7 +211,7 @@ Presence pattern (fallback):
 
 ```powershell
 npm run build:win       # compile → windows/ClipAssistant.exe
-npm run test:win        # run Pester tests in tests/windows/
+npm run test:win        # run Pester tests in windows/tests/
 ```
 
 The exe is a build artifact and is excluded from version control (`.gitignore`). After cloning, always run `build:win` first.
@@ -226,7 +226,7 @@ The exe is a build artifact and is excluded from version control (`.gitignore`).
 | [windows/blacklist.txt](windows/blacklist.txt) | Keyword list loaded at startup |
 | [windows/replacement.txt](windows/replacement.txt) | Replacement token |
 | [windows/create-shortcut.ps1](windows/create-shortcut.ps1) | Desktop shortcut creation script |
-| [tests/windows/ClipAssistant.Tests.ps1](tests/windows/ClipAssistant.Tests.ps1) | Pester test suite |
+| [windows/tests/ClipAssistant.Tests.ps1](windows/tests/ClipAssistant.Tests.ps1) | Pester test suite |
 | [docs/windows-monitor.md](docs/windows-monitor.md) | In-depth design document |
 
 ---

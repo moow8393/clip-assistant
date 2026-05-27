@@ -211,7 +211,7 @@ Presence pattern（fallback）：
 
 ```powershell
 npm run build:win       # 編譯 → windows/ClipAssistant.exe
-npm run test:win        # 執行 Pester 測試 tests/windows/
+npm run test:win        # 執行 Pester 測試 windows/tests/
 ```
 
 exe 為 build artifact，已加入 `.gitignore`。Clone 後務必先執行 `build:win`。
@@ -226,7 +226,7 @@ exe 為 build artifact，已加入 `.gitignore`。Clone 後務必先執行 `buil
 | [windows/blacklist.txt](windows/blacklist.txt) | 啟動時載入的關鍵字清單 |
 | [windows/replacement.txt](windows/replacement.txt) | 替換字元 |
 | [windows/create-shortcut.ps1](windows/create-shortcut.ps1) | 桌面捷徑建立腳本 |
-| [tests/windows/ClipAssistant.Tests.ps1](tests/windows/ClipAssistant.Tests.ps1) | Pester 測試套件 |
+| [windows/tests/ClipAssistant.Tests.ps1](windows/tests/ClipAssistant.Tests.ps1) | Pester 測試套件 |
 | [docs/windows-monitor.md](docs/windows-monitor.md) | 詳細設計文件 |
 
 ---
