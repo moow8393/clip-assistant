@@ -1,6 +1,6 @@
 # Clip Assistant
 
-跨平台剪貼簿監控工具，自動偵測敏感關鍵字並在貼上前提示遮罩其值。
+跨平台剪貼簿監控工具，偵測敏感關鍵字並在貼上前提示遮罩其值。自動背景偵測功能僅限 Windows 版本。
 
 > For English documentation, see [README.md](README.md)
 
@@ -11,16 +11,18 @@
 | 平台 | 狀態 | 原始碼 |
 |------|------|--------|
 | Windows | ✅ 已實作 | [windows/src/](windows/src/) |
-| iOS | 🚧 開發中 | — |
+| iOS | ⏸ 暫緩 | [ios/ClipAssistant/](ios/ClipAssistant/) |
 
 快速跳轉：
 - [Windows — 使用說明](#windows--使用說明)
 - [Windows — 開發說明](#windows--開發說明)
-- [iOS — 開發說明](#ios--開發說明)
+- [iOS — 開發說明](#ios--開發說明)（暫緩）
 
 ---
 
 ## 功能簡介
+
+![Demo](images/demo.gif)
 
 複製含有敏感鍵值對的文字（連線字串、log、設定檔片段）時，Clip Assistant 攔截剪貼簿事件，提示你在貼上前遮罩敏感值。
 
@@ -29,6 +31,74 @@
 兩種偵測模式：
 - **k-v 遮罩** — 關鍵字後接 `:` 或 `=` 且有值 → 自動替換
 - **存在警告** — 偵測到關鍵字但無法解析鍵值結構（如表格標題）→ 警示手動確認
+
+---
+
+## 快速驗證範例
+
+將以下各輸入複製後觸發偵測，確認工具運作正常。
+
+### k-v 遮罩 — 連線字串
+
+```
+Host: db.prod.internal, Password: S3cr3tP@ss, Account: service_user
+```
+
+預期輸出：`Host: ***, Password: ***, Account: ***`
+`host`、`password`、`account` 同時命中；值被替換，鍵名與分隔符保留。
+
+### k-v 遮罩 — HTTP log 含 Bearer Token
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig
+host: api.internal.company.com
+```
+
+預期輸出：`Authorization: Bearer ***` 與 `host: ***`
+`Bearer` scheme 前綴視為分隔符的一部分而保留，只有 token 值被遮罩。
+
+### k-v 遮罩 — JSON 物件
+
+```json
+{
+  "name": "John Smith",
+  "password": "MyP@ssw0rd",
+  "email": "john.smith@company.com"
+}
+```
+
+預期輸出：`"password": "***"`
+支援帶引號的鍵值格式。值前的 `"` 被吸收進分隔符，值後的 `"` 保留，維持合法的 JSON 結構。
+
+### 存在警告 — 表格標題
+
+```
+Name       PW          Address
+John       MyP@ssw0rd  123 Main St
+Jane       S3cr3t!     456 Oak Ave
+```
+
+預期：**警告**（不遮罩）。`pw` 出現在欄位標題，後面沒有 `:` 或 `=` 分隔符，工具無法安全判斷要替換哪個值，因此改為警示，請手動確認。
+
+### 無命中 — 詞界保護
+
+```
+hostname=webserver01
+mypassword_field=test
+```
+
+預期：**無提示**。`hostname` 包含 `host`，但緊接著字母 `n`，詞界保護阻擋命中；`mypassword` 前面有字母 `my`，同樣被阻擋。
+
+### CJK 關鍵字
+
+將 `密碼` 設為關鍵字後複製：
+
+```
+密碼: S3cr3t!
+```
+
+預期輸出：`密碼: ***`
+CJK 關鍵字使用 Unicode letter lookbehind/lookahead 取代 `\b`，因此 `test密碼=secret` 正確地**不**命中，而 ` 密碼: S3cr3t!` 會被遮罩。
 
 ---
 
@@ -163,23 +233,64 @@ exe 為 build artifact，已加入 `.gitignore`。Clone 後務必先執行 `buil
 
 ## iOS — 開發說明
 
-> **狀態：尚未實作。**
-> 本章節為 iOS 版本預留位置。
+> **狀態：暫緩。** 核心邏輯與 CI 已完成，但真機測試因成本考量暫緩推進（需 Apple Developer 帳號或每 7 天重新簽署）。程式碼保留於 repo，待日後恢復開發。
 
-iOS 版本將實作相同概念，監控剪貼簿變更並提示使用者遮罩敏感值。
-
-### 規劃方向
+### 架構概覽
 
 ```
-npm run info:ios        # 顯示：Please open ./ios/ClipAssistant.xcodeproj in Xcode (Mac Required)
+ClipAssistantApp (@main)
+  └─ ContentView（TabView）
+       ├─ ClipboardInspectorView  — Tab 1：偵測與遮罩
+       │    └─ ClipboardInspectorViewModel（@MainActor）
+       │         ├─ UIPasteboard.changedNotification  — 前景剪貼簿變更
+       │         ├─ ScenePhase.active                 — App 回到前景
+       │         ├─ ClipboardDetector                 — Regex 偵測（Swift 6 Sendable）
+       │         └─ HistoryStore                      — 寫入遮罩記錄
+       ├─ HistoryView             — Tab 2：遮罩記錄
+       │    └─ HistoryViewModel（@MainActor）
+       └─ SettingsView            — Tab 3：關鍵字與替換字元
+            └─ SettingsViewModel（@MainActor）
 ```
 
-實作細節（待開發後補充）：
+### 為什麼沒有自動偵測
 
-- 平台：iOS 16+
-- 語言：Swift 6 / SwiftUI
-- 進入點：`ios/` 目錄
-- 建置：需要 Xcode（Mac 環境）
+Windows 可透過 `WM_CLIPBOARDUPDATE` 在背景靜默監控——不需要使用者介入。iOS 沒有對應機制：
+
+- 背景 App 讀取 `UIPasteboard` 會觸發系統隱私橫幅（iOS 14+）
+- `UIPasteboard.changedNotification` 只在 App 處於前景時發送
+- App Store 沙盒不開放第三方 App 取得背景剪貼簿存取權
+
+因此 iOS 版偵測設計為**前景觸發**：由 `ScenePhase.active`（App 切回前景）與 `UIPasteboard.changedNotification`（前景時剪貼簿變更）共同驅動。
+
+### 建置與測試
+
+測試在 GitHub Actions 執行（macOS-15、Xcode 16.4、iPhone 16 模擬器）：
+
+```
+.github/workflows/ios.yml
+  ├─ test      — xcodebuild test on iOS Simulator（每次 push / PR）
+  └─ build-ipa — 產出未簽署 IPA artifact（僅 push to main，測試通過後執行）
+```
+
+本機建置需要 Mac + Xcode 16+：
+
+```bash
+xcodebuild test \
+  -project ios/ClipAssistant.xcodeproj \
+  -scheme ClipAssistant \
+  -destination 'platform=iOS Simulator,name=iPhone 16'
+```
+
+### 關鍵檔案
+
+| 路徑 | 說明 |
+|------|------|
+| [ios/ClipAssistant/App/](ios/ClipAssistant/App/) | App 進入點與根 `ContentView` |
+| [ios/ClipAssistant/Core/Detection/](ios/ClipAssistant/Core/Detection/) | `ClipboardDetector`、`PatternBuilder` — 共用 Regex 邏輯 |
+| [ios/ClipAssistant/Core/Storage/](ios/ClipAssistant/Core/Storage/) | `HistoryStore`、`SettingsStore` — JSON 持久化（`FileManager`）|
+| [ios/ClipAssistant/Features/](ios/ClipAssistant/Features/) | `Inspector`、`History`、`Settings` — SwiftUI 介面與 ViewModel |
+| [ios/ClipAssistantTests/DetectorTests.swift](ios/ClipAssistantTests/DetectorTests.swift) | 10 個單元測試，涵蓋 Regex、CJK 邊界、`$` 跳脫 |
+| [docs/ios-app-cleaning-station.md](docs/ios-app-cleaning-station.md) | 設計文件 |
 
 ---
 

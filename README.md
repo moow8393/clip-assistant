@@ -1,6 +1,6 @@
 # Clip Assistant
 
-A cross-platform clipboard monitor that detects sensitive keywords and offers to redact their values before you paste.
+A cross-platform clipboard monitor that detects sensitive keywords and offers to redact their values before you paste. Automatic background detection is available on Windows only.
 
 > 中文說明請見 [README.zh-TW.md](README.zh-TW.md)
 
@@ -11,16 +11,18 @@ A cross-platform clipboard monitor that detects sensitive keywords and offers to
 | Platform | Status | Source |
 |----------|--------|--------|
 | Windows  | ✅ Available | [windows/src/](windows/src/) |
-| iOS      | 🚧 Coming soon | — |
+| iOS      | ⏸ On hold | [ios/ClipAssistant/](ios/ClipAssistant/) |
 
 Jump to the platform you're working on:
 - [Windows — User Guide](#windows--user-guide)
 - [Windows — Developer Guide](#windows--developer-guide)
-- [iOS — Developer Guide](#ios--developer-guide)
+- [iOS — Developer Guide](#ios--developer-guide) *(on hold)*
 
 ---
 
 ## What It Does
+
+![Demo](images/demo.gif)
 
 When you copy text that contains sensitive key-value pairs — connection strings, log lines, config snippets — Clip Assistant intercepts the clipboard event and prompts you to redact the values before pasting.
 
@@ -29,6 +31,74 @@ When you copy text that contains sensitive key-value pairs — connection string
 Two detection modes:
 - **k-v redaction** — keyword followed by `:` or `=` and a value → offers automatic replacement
 - **Presence warning** — keyword detected but no parseable value structure (e.g. table headers) → warns you to review manually
+
+---
+
+## Quick Verification Examples
+
+Copy each input below and trigger detection to confirm the tool works as expected.
+
+### k-v Redaction — connection string
+
+```
+Host: db.prod.internal, Password: S3cr3tP@ss, Account: service_user
+```
+
+Expected output: `Host: ***, Password: ***, Account: ***`
+Keywords `host`, `password`, and `account` are detected; their values are replaced. The keys and separators are preserved.
+
+### k-v Redaction — HTTP log with Bearer token
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig
+host: api.internal.company.com
+```
+
+Expected output: `Authorization: Bearer ***` and `host: ***`
+The `Bearer` scheme prefix is treated as part of the separator and preserved; only the token value is redacted.
+
+### k-v Redaction — JSON object
+
+```json
+{
+  "name": "John Smith",
+  "password": "MyP@ssw0rd",
+  "email": "john.smith@company.com"
+}
+```
+
+Expected output: `"password": "***"`
+Quoted keys and values are supported. The leading `"` of the value is absorbed into the separator, and the trailing `"` is left intact, preserving valid JSON structure.
+
+### Presence Warning — table header
+
+```
+Name       PW          Address
+John       MyP@ssw0rd  123 Main St
+Jane       S3cr3t!     456 Oak Ave
+```
+
+Expected: a **warning** (not redaction). The keyword `pw` appears in a column header with no `:` or `=` separator, so the tool cannot safely identify which value to replace. You are warned to review manually.
+
+### No Match — word boundary protection
+
+```
+hostname=webserver01
+mypassword_field=test
+```
+
+Expected: **no alert**. `hostname` contains `host` but is followed by a letter (`n`), so the boundary guard blocks the match. Same for `mypassword` preceded by `my`.
+
+### CJK Keywords
+
+Configure `密碼` as a keyword, then copy:
+
+```
+密碼: S3cr3t!
+```
+
+Expected output: `密碼: ***`
+CJK keywords use Unicode letter lookbehind/lookahead instead of `\b`, so `test密碼=secret` correctly produces no match while ` 密碼: S3cr3t!` is redacted.
 
 ---
 
@@ -163,23 +233,64 @@ The exe is a build artifact and is excluded from version control (`.gitignore`).
 
 ## iOS — Developer Guide
 
-> **Status: not yet implemented.**
-> This section is a placeholder for the upcoming iOS version.
+> **Status: on hold.** The core logic and CI are complete, but real-device testing has been deferred due to testing cost (requires an Apple Developer account or a 7-day Sideloadly refresh cycle). The code is preserved for future resumption.
 
-The iOS implementation will share the same concept — monitoring clipboard changes and prompting the user to redact sensitive values.
-
-### Planned approach
+### Architecture Overview
 
 ```
-npm run info:ios        # prints: "Please open ./ios/ClipAssistant.xcodeproj in Xcode (Mac Required)"
+ClipAssistantApp (@main)
+  └─ ContentView (TabView)
+       ├─ ClipboardInspectorView  — Tab 1: detect & redact
+       │    └─ ClipboardInspectorViewModel (@MainActor)
+       │         ├─ UIPasteboard.changedNotification  — foreground clipboard change
+       │         ├─ ScenePhase.active                 — app foregrounded
+       │         ├─ ClipboardDetector                 — regex detection (Swift 6 Sendable)
+       │         └─ HistoryStore                      — append redaction record
+       ├─ HistoryView             — Tab 2: redaction log
+       │    └─ HistoryViewModel (@MainActor)
+       └─ SettingsView            — Tab 3: keywords & replacement token
+            └─ SettingsViewModel (@MainActor)
 ```
 
-Implementation notes (to be filled in once development begins):
+### Why There Is No Automatic Detection
 
-- Platform: iOS 16+
-- Language: Swift 6 / SwiftUI
-- Entry point: `ios/` directory
-- Build: Xcode required (Mac only)
+Windows can receive `WM_CLIPBOARDUPDATE` silently in the background — no user interaction required. iOS has no equivalent:
+
+- Background processes cannot read `UIPasteboard` without triggering a system privacy banner (iOS 14+)
+- `UIPasteboard.changedNotification` is only delivered while the app is in the foreground
+- Apple's App Store sandbox prohibits the background clipboard entitlement for third-party apps
+
+As a result, detection is intentionally **foreground-only**: triggered by `ScenePhase.active` (app foregrounded) and `UIPasteboard.changedNotification` (clipboard changed while already in foreground).
+
+### Build & Test
+
+Tests run on GitHub Actions (macOS-15, Xcode 16.4, iPhone 16 simulator):
+
+```
+.github/workflows/ios.yml
+  ├─ test      — xcodebuild test on iOS Simulator (every push/PR)
+  └─ build-ipa — produces unsigned IPA artifact (push to main only, after tests pass)
+```
+
+To build locally you need a Mac with Xcode 16+:
+
+```bash
+xcodebuild test \
+  -project ios/ClipAssistant.xcodeproj \
+  -scheme ClipAssistant \
+  -destination 'platform=iOS Simulator,name=iPhone 16'
+```
+
+### Key Files
+
+| Path | Description |
+|------|-------------|
+| [ios/ClipAssistant/App/](ios/ClipAssistant/App/) | App entry point and root `ContentView` |
+| [ios/ClipAssistant/Core/Detection/](ios/ClipAssistant/Core/Detection/) | `ClipboardDetector`, `PatternBuilder` — shared regex logic |
+| [ios/ClipAssistant/Core/Storage/](ios/ClipAssistant/Core/Storage/) | `HistoryStore`, `SettingsStore` — JSON persistence via `FileManager` |
+| [ios/ClipAssistant/Features/](ios/ClipAssistant/Features/) | `Inspector`, `History`, `Settings` — SwiftUI views and view models |
+| [ios/ClipAssistantTests/DetectorTests.swift](ios/ClipAssistantTests/DetectorTests.swift) | 10 unit tests covering regex, CJK boundary, `$` escape |
+| [docs/ios-app-cleaning-station.md](docs/ios-app-cleaning-station.md) | Design document |
 
 ---
 
