@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 # ClipAssistant.Tests.ps1
 # Pester 5 tests for windows/src/Program.cs.
 # Covers: (1) config-file loading logic, (2) regex pattern behaviour,

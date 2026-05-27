@@ -18,8 +18,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Run Pester tests
+        shell: powershell
+        run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Install-Module -Name Pester -Force -SkipPublisherCheck -MinimumVersion 5.0 -Scope CurrentUser
+          Invoke-Pester ./windows/tests/ClipAssistant.Tests.ps1 -Output Detailed
+
       - name: Compile ClipAssistant.exe
-        shell: pwsh
+        shell: powershell
         run: |
           $csc = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
           & $csc /target:winexe /optimize+ `
@@ -29,12 +36,6 @@ jobs:
             /r:System.Runtime.InteropServices.dll `
             windows\src\Program.cs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Run Pester tests
-        shell: pwsh
-        run: |
-          Install-Module -Name Pester -Force -SkipPublisherCheck -MinimumVersion 5.0 -Scope CurrentUser
-          Invoke-Pester ./windows/tests/ClipAssistant.Tests.ps1 -Output Detailed
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
